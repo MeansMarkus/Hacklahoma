@@ -166,19 +166,38 @@ export default function Mountain({ goal, tasks, onPhotoUpdate }) {
             ))}
           </g>
 
-          {/* 8. Climber character */}
+          {/* 8. Penguin climber character */}
           <g
             transform={`translate(${climber.x}, ${climber.y})`}
             className="climber-dot"
             style={{ transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
-            {/* Guide line/Rope if needed, or just the climber */}
-            {/* Body */}
-            <circle cx="0" cy="0" r="6" fill="#fbbf24" filter="url(#glow)" />
-            {/* Head */}
-            <circle cx="0" cy="-8" r="4" fill="#fbbf24" filter="url(#glow)" />
-            <path d="M -6 5 L -3 12 M 6 5 L 3 10" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" />
-            <path d="M -6 -2 L 6 -2" stroke="#fbbf24" strokeWidth="2" strokeLinecap="round" />
+            {/* Body - black oval */}
+            <ellipse cx="0" cy="0" rx="7" ry="9" fill="#1a1a1a" />
+            
+            {/* White belly */}
+            <ellipse cx="0" cy="1" rx="5" ry="7" fill="#ffffff" />
+            
+            {/* Head - black circle */}
+            <circle cx="0" cy="-10" r="5" fill="#1a1a1a" />
+            
+            {/* White face patch */}
+            <ellipse cx="0" cy="-10" rx="3.5" ry="4" fill="#ffffff" />
+            
+            {/* Eyes */}
+            <circle cx="-2" cy="-11" r="1" fill="#1a1a1a" />
+            <circle cx="2" cy="-11" r="1" fill="#1a1a1a" />
+            
+            {/* Beak - orange triangle */}
+            <path d="M 0 -8 L -2 -7 L 2 -7 Z" fill="#ff8c00" />
+            
+            {/* Flippers/Wings */}
+            <ellipse cx="-7" cy="0" rx="2" ry="5" fill="#1a1a1a" transform="rotate(-20 -7 0)" />
+            <ellipse cx="7" cy="0" rx="2" ry="5" fill="#1a1a1a" transform="rotate(20 7 0)" />
+            
+            {/* Feet - orange */}
+            <ellipse cx="-3" cy="9" rx="2.5" ry="1.5" fill="#ff8c00" />
+            <ellipse cx="3" cy="9" rx="2.5" ry="1.5" fill="#ff8c00" />
           </g>
         </svg>
       </div>
