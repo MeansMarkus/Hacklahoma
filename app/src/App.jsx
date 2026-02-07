@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Sky from './components/Sky'
 import Header from './components/Header'
 import Mountain from './components/Mountain'
@@ -41,16 +41,11 @@ function getAltitude(tasks) {
 }
 
 export default function App() {
-  const [goal, setGoal] = useState('')
-  const [tasks, setTasks] = useState([])
+  const initialState = useMemo(() => loadState(), [])
+  const [goal, setGoal] = useState(() => initialState.goal)
+  const [tasks, setTasks] = useState(() => initialState.tasks)
   const [showCelebration, setShowCelebration] = useState(false)
   const [celebrated, setCelebrated] = useState(false)
-
-  useEffect(() => {
-    const { goal: g, tasks: t } = loadState()
-    setGoal(g)
-    setTasks(t)
-  }, [])
 
   useEffect(() => {
     saveState(goal, tasks)
