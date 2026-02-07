@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Life as a Mountain — Reach New Heights</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../Style/styles.css" />
+</head>
+<body>
+  <div class="sky">
+    <div class="stars"></div>
+    <div class="gradient-sky"></div>
+    <div class="sunrise-glow"></div>
+  </div>
+
+
+  </main>
+
+  <footer class="footer">
+    <p>Reach new heights, one ledge at a time.</p>
+  </footer>
+
+  <div id="landingPage" class="landing-overlay">
+    <div class="landing-content">
+      <h1 class="landing-title">Life as a Mountain</h1>
+      <p class="landing-subtitle">Every task is a step. Every goal is a summit.</p>
+      
+      <svg class="landing-svg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMax meet">
+        <defs>
+          <linearGradient id="nightSky" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#0f172a" />
+            <stop offset="100%" style="stop-color:#1e293b" />
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="2.5" result="coloredBlur"/>
+            <feMerge>
+              <feMergeNode in="coloredBlur"/>
+              <feMergeNode in="SourceGraphic"/>
+            </feMerge>
+          </filter>
+        </defs>
+        <circle cx="650" cy="80" r="30" fill="#fbbf24" opacity="0.8" filter="url(#glow)" />
+        <path d="M200 500 L400 150 L600 500 Z" fill="#334155" opacity="0.5" />
+        <path d="M300 500 L500 250 L700 500 Z" fill="#1e293b" opacity="0.8" />
+        <path d="M0 500 L300 450 L500 450 L800 500 L0 500 Z" fill="#020617" />
+        <g transform="translate(400, 410)">
+          <circle cx="0" cy="0" r="6" fill="#000" />
+          <path d="M-6 5 L6 5 L10 40 L-10 40 Z" fill="#000" />
+          <path d="M-4 40 L-4 55" stroke="#000" stroke-width="3" />
+          <path d="M4 40 L4 55" stroke="#000" stroke-width="3" />
+        </g>
+      </svg>
+
+      <a href="index.html" class="btn btn-primary btn-large">Begin your journey</a>
+    </div>
+      <script src="../app.js"> 
+        document.getElementById('startJourneyBtn').addEventListener('click', function() {
+          window.location.href = 'index.html'; 
+        });
+            </script>
+  </div>
+
+

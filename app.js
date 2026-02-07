@@ -297,3 +297,21 @@ window.addEventListener('wheel', (e) => {
   currentScale = Math.min(Math.max(0.5, currentScale + delta), 3);
   zoomTarget.style.transform = `scale(${currentScale})`;
 }, { passive: false });
+
+/* --- LANDING PAGE LOGIC --- */
+document.getElementById('startJourneyBtn').addEventListener('click', function() {
+  console.log("Journey started!");
+  const landing = document.getElementById('landingPage');
+  landing.style.opacity = '0';
+  landing.style.transition = 'opacity 0.5s ease';
+  setTimeout(() => {
+    landing.style.display = 'none';
+  }, 500);
+});
+
+// Initialize everything
+window.onload = () => {
+  loadState();
+  renderTasks();
+};
+
