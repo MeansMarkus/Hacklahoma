@@ -142,6 +142,68 @@ body {
 }
 
 /* Main layout */
+.main-viewport {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.mountain-viewport {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  
+}
+
+.zoom-container {
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+  transition: transform 0.1s ease-out;
+}
+
+/* Mountain sizing inside the full-screen view */
+.mountain-section {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end; /* Sits on the bottom */
+}
+
+.mountain-container {
+  width: 100%;
+  height: 80vh; /* Adjust how tall the mountain feels */
+}
+
+/* Floating Window Styling */
+.ui-layer {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 10;
+  pointer-events: none; /* Let clicks pass through to mountain if not on window */
+}
+
+.floating-window {
+  width: 320px;
+  pointer-events: auto; /* Re-enable clicks for the window itself */
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Hide footer so it doesn't float over mountain */
+.footer {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 5;
+}
+
 .main {
   position: relative;
   z-index: 2;
@@ -243,6 +305,7 @@ body {
   border-radius: 12px;
   padding: 1.25rem;
   backdrop-filter: blur(10px);
+  pointer-events: auto;
 }
 
 .card h2 {

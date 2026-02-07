@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Life as a Mountain — Reach New Heights</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../Style/styles.css" />
+</head>
+<body>
+  <div class="sky">
+    <div class="stars"></div>
+    <div class="gradient-sky"></div>
+    <div class="sunrise-glow"></div>
+  </div>
+
+  <header class="header">
+    <h1 class="logo">Life as a Mountain</h1>
+    <p class="tagline">Technology that helps you reach new heights</p>
+    
+    <div class="altitude-meter">
+      <span class="altitude-label">Your altitude</span>
+      <div class="altitude-bar-wrap">
+        <div class="altitude-bar" id="altitudeBar" style="width: 30%"></div>
+      </div>
+      <span class="altitude-value" id="altitudeValue">0 m</span>
+    </div>
+  </header>
+
+  <main class="main-viewport">
+  
+  <div class="mountain-viewport" id="mountainViewport">
+    <div class="zoom-container" id="zoomTarget">
+      <section class="mountain-section">
+        <div class="summit-banner" id="summitBanner">
+          <span class="summit-flag">🏔️</span>
+          <span id="goalLabel">Set your summit</span>
+        </div>
+        
+        <div class="mountain-container">
+          <svg class="mountain-svg" id="mountainSvg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMax meet">
+            <defs>
+              <linearGradient id="rockGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#b98a5d" />
+                <stop offset="100%" style="stop-color:#8e6239" />
+              </linearGradient>
+              <linearGradient id="snowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%" style="stop-color:#e2e8f0" />
+                <stop offset="100%" style="stop-color:#94a3b8" />
+              </linearGradient>
+              <filter id="glow">
+                <feGaussianBlur stdDeviation="3" result="blur" />
+                <feMerge>
+                  <feMergeNode in="blur" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+            </defs>
+
+            <path id="mountainRock" d="M400 100 L700 500 L400 500 Z" fill="url(#rockGrad)" />
+            <path id="mountainSnow" d="M400 100 L100 500 L400 500 Z" fill="url(#snowGrad)" />
+            <path class="summit-cap" d="M400 100 L430 180 L400 210 L370 190 L340 240 L310 200 Z" fill="white" />
+            <path d="M100 500 L400 100 L700 500" fill="none" stroke="black" stroke-width="2" stroke-linejoin="round" />
+            
+            <g id="ledgesGroup"></g>
+            <circle id="climberDot" class="climber-dot" r="8" fill="#fbbf24" filter="url(#glow)" cx="400" cy="480" />
+          </svg>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="ui-layer">
+    <section class="controls floating-window">
+      <div class="goal-card card">
+        <h2>Set your summit</h2>
+        <div class="input-row">
+          <input type="text" id="goalInput" placeholder="e.g. Finish my app" maxlength="60" />
+          <button type="button" id="setGoalBtn" class="btn btn-primary">Set</button>
+        </div>
+      </div>
+
+      <div class="tasks-card card">
+        <h2>Your ledges</h2>
+        <div class="input-row">
+          <input type="text" id="taskInput" placeholder="Add a ledge" />
+          <button type="button" id="addTaskBtn" class="btn btn-primary">Add</button>
+        </div>
+        <ul class="task-list" id="taskList"></ul>
+      </div>
+
+      <div class="motivation-card card" id="motivationCard">
+        <p class="motivation-text" id="motivationText">Keep climbing!</p>
+      </div>
+    </section>
+  </div>
+</main>
+
+  <footer class="footer">
+    <p>Reach new heights, one ledge at a time.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

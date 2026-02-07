@@ -288,3 +288,12 @@ function generateMountainPath() {
 
   return `M100 500 L250 350 L320 380 L${peakX} ${peakY} L480 380 L550 350 L700 500 Z`;
 }
+
+const zoomTarget = document.getElementById('zoomTarget');
+let currentScale = 1;
+window.addEventListener('wheel', (e) => {
+  e.preventDefault();
+  const delta = -e.deltaY * 0.001;
+  currentScale = Math.min(Math.max(0.5, currentScale + delta), 3);
+  zoomTarget.style.transform = `scale(${currentScale})`;
+}, { passive: false });
