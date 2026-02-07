@@ -1,6 +1,16 @@
 import { useState } from 'react'
 
-export default function GoalCard({ currentGoal, onSetGoal }) {
+export default function GoalCard({
+  currentGoal,
+  onSetGoal,
+  onGenerateTasks,
+  taskCount,
+  onTaskCountChange,
+  minTaskCount,
+  maxTaskCount,
+  isGenerating,
+  generateError,
+}) {
   const [value, setValue] = useState('')
 
   const handleSubmit = (e) => {
@@ -32,6 +42,30 @@ export default function GoalCard({ currentGoal, onSetGoal }) {
           Set goal
         </button>
       </form>
+      <div className="flex flex-wrap items-center gap-3">
+        <label className="flex items-center gap-2 text-sm text-slate-300">
+          Task count
+          <input
+            type="number"
+            min={minTaskCount}
+            max={maxTaskCount}
+            value={taskCount}
+            onChange={(e) => onTaskCountChange(e.target.value)}
+            className="w-20 px-3 py-2 rounded-lg border border-slate-400/20 bg-sky-deep/60 text-slate-100 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+          />
+        </label>
+        <button
+          type="button"
+          onClick={onGenerateTasks}
+          disabled={isGenerating}
+          className="px-4 py-2.5 min-h-[44px] rounded-lg font-semibold bg-gradient-to-br from-slate-100 to-slate-200 text-sky-deep hover:shadow-lg hover:shadow-slate-200/40 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {isGenerating ? 'Generating...' : 'Generate ledges'}
+        </button>
+      </div>
+      {generateError ? (
+        <p className="mt-3 text-sm text-rose-300">{generateError}</p>
+      ) : null}
     </div>
   )
 }

@@ -1,0 +1,3 @@
+ollama 
+model=gemma3:1b
+host=11434

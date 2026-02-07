@@ -1,5 +1,10 @@
 export const STORAGE_KEY = 'life-as-a-mountain'
 export const MAX_ALTITUDE = 4000
+export const OLLAMA_BASE_URL = 'http://localhost:11434'
+export const OLLAMA_MODEL = 'gemma3:1b'
+export const DEFAULT_TASK_COUNT = 8
+export const MIN_TASK_COUNT = 3
+export const MAX_TASK_COUNT = 15
 
 export const MOTIVATION = {
   empty: "Set your summit and add ledges. Every step takes you higher.",
