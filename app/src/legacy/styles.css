@@ -1,0 +1,512 @@
+/* Life as a Mountain — Reach New Heights
+   Theme: Technology that helps you reach new heights */
+
+:root {
+  --sky-deep: #0f172a;
+  --sky-mid: #1e293b;
+  --sky-light: #334155;
+  --mountain-dark: #1e293b;
+  --mountain-mid: #334155;
+  --mountain-light: #475569;
+  --snow: #e2e8f0;
+  --gold: #fbbf24;
+  --gold-dim: #d97706;
+  --accent: #38bdf8;
+  --success: #34d399;
+  --text: #f1f5f9;
+  --text-muted: #94a3b8;
+  --card-bg: rgba(30, 41, 59, 0.85);
+  --card-border: rgba(148, 163, 184, 0.2);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Outfit', sans-serif;
+  background: var(--sky-deep);
+  color: var(--text);
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+/* Sky background */
+.sky {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(180deg, #0f172a 0%, #1e293b 40%, #334155 100%);
+}
+
+.stars {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    radial-gradient(1px 1px at 20px 30px, #eee, rgba(0,0,0,0)),
+    radial-gradient(1.5px 1.5px at 100px 150px, #fff, rgba(0,0,0,0)),
+    radial-gradient(1px 1px at 250px 50px, #ddd, rgba(0,0,0,0));
+  background-size: 300px 300px; /* Adjust for density */
+  opacity: 0.4;
+}
+
+.gradient-sky {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg,
+    transparent 0%,
+    rgba(56, 189, 248, 0.06) 30%,
+    rgba(251, 191, 36, 0.04) 60%,
+    transparent 100%);
+}
+
+.sunrise-glow {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 50%;
+  background: linear-gradient(180deg, transparent, rgba(251, 191, 36, 0.08));
+  pointer-events: none;
+}
+
+/* Header */
+.header {
+  position: relative;
+  z-index: 2;
+  padding: 1.5rem 1.5rem 1rem;
+  text-align: center;
+}
+
+.logo {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  letter-spacing: 0.02em;
+  background: linear-gradient(135deg, #f1f5f9 0%, #94a3b8 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.tagline {
+  font-size: 0.9rem;
+  color: var(--accent);
+  font-weight: 500;
+  margin-top: 0.25rem;
+  letter-spacing: 0.05em;
+}
+
+.altitude-meter {
+  margin-top: 1rem;
+  max-width: 280px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.altitude-label {
+  display: block;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  margin-bottom: 0.35rem;
+}
+
+.altitude-bar-wrap {
+  height: 8px;
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 999px;
+  overflow: hidden;
+  border: 1px solid var(--card-border);
+}
+
+.altitude-bar {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold-dim), var(--gold));
+  border-radius: 999px;
+  transition: width 0.6s ease-out;
+}
+
+.altitude-value {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--gold);
+  margin-top: 0.25rem;
+}
+
+/* Main layout */
+.main-viewport {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 1;
+  overflow: hidden;
+}
+
+.mountain-viewport {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  
+}
+
+.zoom-container {
+  width: 100%;
+  height: 100%;
+  transform-origin: center center;
+  transition: transform 0.1s ease-out;
+}
+
+/* Mountain sizing inside the full-screen view */
+.mountain-section {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: flex-end; /* Sits on the bottom */
+}
+
+.mountain-container {
+  width: 100%;
+  height: 80vh; /* Adjust how tall the mountain feels */
+}
+
+/* Floating Window Styling */
+.ui-layer {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  z-index: 10;
+  pointer-events: none; /* Let clicks pass through to mountain if not on window */
+}
+
+.floating-window {
+  width: 320px;
+  pointer-events: auto; /* Re-enable clicks for the window itself */
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Hide footer so it doesn't float over mountain */
+.footer {
+  position: absolute;
+  bottom: 10px;
+  left: 10px;
+  z-index: 5;
+}
+
+.main {
+  position: relative;
+  z-index: 2;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+  padding: 0 1.5rem 2rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+@media (min-width: 900px) {
+  .main {
+    grid-template-columns: 1.2fr 1fr;
+    align-items: start;
+  }
+}
+
+/* Mountain section */
+.mountain-section {
+  position: relative;
+  min-height: 320px;
+}
+
+.summit-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--snow);
+  backdrop-filter: blur(8px);
+  max-width: 90%;
+  text-align: center;
+}
+
+.summit-flag {
+  font-size: 1.1rem;
+}
+
+.mountain-container {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 300px;
+}
+
+.mountain-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.mountain-path {
+  transition: opacity 0.3s ease;
+}
+
+.summit-cap {
+  transition: filter 0.4s ease;
+}
+
+.ledge {
+  transition: all 0.4s ease;
+}
+
+.ledge.reached {
+  fill: var(--success);
+  filter: url(#glow);
+}
+
+.ledge.reached line {
+  stroke: var(--success);
+}
+
+.climber-dot {
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Controls */
+.controls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.card {
+  background: var(--card-bg);
+  border: 1px solid var(--card-border);
+  border-radius: 12px;
+  padding: 1.25rem;
+  backdrop-filter: blur(10px);
+  pointer-events: auto;
+}
+
+.card h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+}
+
+.input-row {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.input-row:last-of-type {
+  margin-bottom: 0;
+}
+
+input[type="text"] {
+  flex: 1;
+  padding: 0.65rem 1rem;
+  border: 1px solid var(--card-border);
+  border-radius: 8px;
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.95rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input[type="text"]::placeholder {
+  color: var(--text-muted);
+}
+
+input[type="text"]:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2);
+}
+
+.btn {
+  padding: 0.75rem 1.1rem;
+  min-height: 44px;
+  border: none;
+  border-radius: 8px;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.2s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.btn:active {
+  transform: scale(0.98);
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold-dim), var(--gold));
+  color: #1e293b;
+}
+
+.btn-primary:hover {
+  box-shadow: 0 4px 14px rgba(251, 191, 36, 0.35);
+}
+
+.task-list {
+  list-style: none;
+}
+
+.task-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  font-size: 0.95rem;
+  animation: slideIn 0.3s ease;
+}
+
+.task-item:last-child {
+  border-bottom: none;
+}
+
+@keyframes slideIn {
+  from {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.task-item input[type="checkbox"] {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  accent-color: var(--success);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.task-item label {
+  flex: 1;
+  cursor: pointer;
+  user-select: none;
+}
+
+.task-item.done label {
+  text-decoration: line-through;
+  color: var(--text-muted);
+}
+
+.task-item .remove-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 0.25rem;
+  font-size: 1.1rem;
+  line-height: 1;
+  opacity: 0.6;
+  transition: opacity 0.2s, color 0.2s;
+}
+
+.task-item .remove-btn:hover {
+  opacity: 1;
+  color: #f87171;
+}
+
+.motivation-card {
+  background: linear-gradient(135deg, rgba(56, 189, 248, 0.12), rgba(251, 191, 36, 0.08));
+  border-color: rgba(56, 189, 248, 0.25);
+}
+
+.motivation-text {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.5;
+}
+
+/* Footer */
+.footer {
+  position: relative;
+  z-index: 2;
+  text-align: center;
+  padding: 1rem 1.5rem;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Summit reached state */
+.summit-reached .summit-cap {
+  filter: url(#glow);
+}
+
+.summit-reached .summit-banner {
+  border-color: var(--gold);
+  color: var(--gold);
+}
+
+.summit-reached .motivation-card {
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.2), rgba(251, 191, 36, 0.15));
+  border-color: rgba(52, 211, 153, 0.4);
+}
+
+/* Summit celebration toast */
+.summit-celebration {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 100;
+  padding: 0.9rem 1.5rem;
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.95), rgba(251, 191, 36, 0.9));
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(52, 211, 153, 0.4);
+  opacity: 0;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.summit-celebration.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+#mountainRock, #mountainSnow, .summit-cap{
+  stroke: #000;
+  stroke-width: 2px;
+  stroke-linejoin: round;
+}
