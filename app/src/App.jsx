@@ -87,6 +87,12 @@ export default function App() {
   const handleRemoveTask = useCallback((id) => {
     setTasks((prev) => prev.filter((t) => t.id !== id))
   }, [])
+  
+  const handlePhotoUpdate = useCallback((id, photoData) => {
+    setTasks((prev) =>
+      prev.map((t) => (t.id === id ? { ...t, photo: photoData } : t))
+    )
+  }, [])
 
   return (
     <>
@@ -95,7 +101,7 @@ export default function App() {
         <Header progress={progress} altitude={altitude} />
         <main className="grid grid-cols-1 gap-6 px-4 pb-8 max-w-6xl mx-auto md:grid-cols-[1.2fr_1fr] md:items-start">
           <section className="mountain-section">
-            <Mountain goal={goal} tasks={tasks} />
+            <Mountain goal={goal} tasks={tasks} onPhotoUpdate={handlePhotoUpdate} />
           </section>
           <section className="flex flex-col gap-4">
             <GoalCard currentGoal={goal} onSetGoal={handleSetGoal} />
@@ -104,6 +110,7 @@ export default function App() {
               onToggle={handleToggleTask}
               onRemove={handleRemoveTask}
               onAdd={handleAddTask}
+              onPhotoUpdate={handlePhotoUpdate}
             />
             <MotivationCard goal={goal} tasks={tasks} progress={progress} />
           </section>

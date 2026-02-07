@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import PhotoFlag from './PhotoFlag'
 
-export default function TaskList({ tasks, onToggle, onRemove, onAdd }) {
+export default function TaskList({ tasks, onToggle, onRemove, onAdd, onPhotoUpdate }) {
   const [input, setInput] = useState('')
 
   const handleAdd = (e) => {
@@ -53,6 +54,11 @@ export default function TaskList({ tasks, onToggle, onRemove, onAdd }) {
             >
               {task.text}
             </label>
+            <PhotoFlag
+              taskId={task.id}
+              photo={task.photo}
+              onPhotoUpdate={onPhotoUpdate}
+            />
             <button
               type="button"
               onClick={() => onRemove(task.id)}
