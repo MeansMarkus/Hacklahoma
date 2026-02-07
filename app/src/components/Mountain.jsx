@@ -28,7 +28,7 @@ export default function Mountain({ goal, tasks, onPhotoUpdate }) {
         <svg
           className="mountain-svg"
           style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', zIndex: 0 }}
-          viewBox="0 0 800 500"
+          viewBox="-100 -50 1000 600"
           preserveAspectRatio="xMidYMid slice"
           pointerEvents="none"
         >
@@ -59,7 +59,7 @@ export default function Mountain({ goal, tasks, onPhotoUpdate }) {
         <svg
           className="mountain-svg"
           style={{ position: 'fixed', inset: 0, width: '100vw', height: '100vh', zIndex: 0 }}
-          viewBox="0 0 800 500"
+          viewBox="-100 -50 1000 600"
           preserveAspectRatio="xMidYMid slice"
           aria-hidden
         >
