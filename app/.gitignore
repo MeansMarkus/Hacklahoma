@@ -1,0 +1,22 @@
+# Dependencies
+node_modules/
+
+# Build
+dist/
+build/
+
+# Capacitor native projects (recreate with: npx cap add android / npx cap add ios)
+android/
+ios/
+
+# IDE & OS
+.idea/
+.vscode/
+*.iml
+.DS_Store
+Thumbs.db
+
+# Env & logs
+.env
+.env.local
+*.log
