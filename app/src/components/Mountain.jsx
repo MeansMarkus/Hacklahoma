@@ -17,26 +17,21 @@ export default function Mountain({ goal, tasks, onPhotoUpdate }) {
   const isSummitReached = total > 0 && doneCount === total
 
   return (
-    <section className="relative min-h-[320px]">
+    <section className="mountain-section">
       {/* Summit banner */}
-      <div
-        className={`absolute top-3 left-1/2 -translate-x-1/2 z-10 px-4 py-2 rounded-full text-sm font-semibold backdrop-blur-md max-w-[90%] text-center flex items-center justify-center gap-2 border ${
-          isSummitReached
-            ? 'border-gold text-gold bg-sky-mid/90'
-            : 'border-slate-400/20 text-slate-200 bg-sky-mid/90'
-        }`}
-      >
-        <span>🏔️</span>
+      <div className={`summit-banner ${isSummitReached ? 'summit-reached' : ''}`}>
+        <span className="summit-flag">🏔️</span>
         <span id="goal-label">{goal || 'Your summit'}</span>
       </div>
 
-      <div className="absolute bottom-0 left-0 right-0 h-[300px] flex items-end justify-center">
+      <div className="mountain-container">
         {/* Photos positioned inline with SVG */}
         <svg
-          className="absolute inset-0 w-full h-full"
+          className="mountain-svg"
+          style={{position: 'absolute', inset: 0}}
           viewBox="0 0 800 500"
           preserveAspectRatio="xMidYMax meet"
-          style={{ pointerEvents: 'none' }}
+          pointerEvents="none"
         >
           {ledges.map((ledge, i) => {
             const task = tasks[i]
@@ -63,7 +58,7 @@ export default function Mountain({ goal, tasks, onPhotoUpdate }) {
         </svg>
 
         <svg
-          className="w-full h-full block"
+          className="mountain-svg"
           viewBox="0 0 800 500"
           preserveAspectRatio="xMidYMax meet"
           aria-hidden
@@ -86,11 +81,24 @@ export default function Mountain({ goal, tasks, onPhotoUpdate }) {
               </feMerge>
             </filter>
           </defs>
-          <path d={pathD} fill="url(#mountainGrad)" className="transition-opacity duration-300" />
+          <path 
+            d={pathD} 
+            fill="url(#mountainGrad)" 
+            className="mountain-path"
+            id="mountainRock"
+          />
+          {/* Left slope */}
+          <path 
+            d="M 400 100 L 100 500 L 400 500 Z" 
+            fill="url(#snowGrad)" 
+            className="mountain-path"
+            id="mountainSnow"
+          />
           <g>
             {ledges.map((ledge, i) => (
               <rect
                 key={i}
+                className={`ledge transition-all duration-400 ${ledge.reached ? 'reached' : ''}`}
                 x={ledge.x - ledge.width / 2}
                 y={ledge.y - 6}
                 width={ledge.width}
@@ -99,7 +107,9 @@ export default function Mountain({ goal, tasks, onPhotoUpdate }) {
                 fill={ledge.reached ? '#34d399' : 'rgba(71, 85, 105, 0.95)'}
                 stroke={ledge.reached ? '#34d399' : 'rgba(148, 163, 184, 0.35)'}
                 strokeWidth={1.5}
-                className={`transition-all duration-400 ${ledge.reached ? 'drop-shadow-[0_0_6px_#34d399]' : ''}`}
+                style={{
+                  filter: ledge.reached ? 'drop-shadow(0 0 6px #34d399)' : 'none'
+                }}
               />
             ))}
           </g>
@@ -107,13 +117,18 @@ export default function Mountain({ goal, tasks, onPhotoUpdate }) {
             d={capD}
             fill="url(#snowGrad)"
             filter="url(#glow)"
-            className={isSummitReached ? 'drop-shadow-[0_0_8px_rgba(251,191,36,0.5)]' : ''}
+            className="summit-cap"
+            id="mountainSnow"
+            style={{
+              filter: isSummitReached ? 'drop-shadow(0 0 8px rgba(251, 191, 36, 0.5))' : 'none'
+            }}
           />
           
           {/* Climber character */}
           <g
             transform={`translate(${climber.x}, ${climber.y})`}
-            className="transition-all duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]"
+            className="climber-dot"
+            style={{ transition: 'all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1)' }}
           >
             {/* Rope/harness */}
             <line x1="0" y1="-8" x2="0" y2="-16" stroke="#fbbf24" strokeWidth="1.5" opacity="0.6" />

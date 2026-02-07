@@ -20,3 +20,103 @@
   transition: opacity 0.4s ease, transform 0.4s ease;
 }
 
+/* Mountain styling from Style/styles.css */
+.mountain-section {
+  position: relative;
+  min-height: 400px;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.summit-banner {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 4;
+  background: rgba(30, 41, 59, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  border-radius: 999px;
+  padding: 0.5rem 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  backdrop-filter: blur(8px);
+  max-width: 90%;
+  text-align: center;
+}
+
+.summit-banner.summit-reached {
+  border-color: #fbbf24;
+  color: #fbbf24;
+}
+
+.summit-flag {
+  font-size: 1.1rem;
+}
+
+.mountain-container {
+  position: relative;
+  width: 100%;
+  height: 350px;
+}
+
+.mountain-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.mountain-path {
+  transition: opacity 0.3s ease;
+}
+
+.ledge {
+  transition: all 0.4s ease;
+}
+
+.ledge.reached {
+  fill: #34d399 !important;
+  filter: drop-shadow(0 0 6px #34d399);
+}
+
+.summit-cap {
+  transition: filter 0.4s ease;
+}
+
+.climber-dot {
+  transition: all 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Summit reached state */
+.summit-reached .summit-cap {
+  filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.5));
+}
+
+/* Summit celebration animation */
+.summit-celebration {
+  position: fixed;
+  bottom: 2rem;
+  left: 50%;
+  transform: translateX(-50%) translateY(20px);
+  z-index: 100;
+  padding: 0.9rem 1.5rem;
+  background: linear-gradient(135deg, rgba(52, 211, 153, 0.95), rgba(251, 191, 36, 0.9));
+  color: #0f172a;
+  font-weight: 700;
+  font-size: 1rem;
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(52, 211, 153, 0.4);
+  opacity: 0;
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
+.summit-celebration.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
