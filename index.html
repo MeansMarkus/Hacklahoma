@@ -40,40 +40,34 @@
       </div>
       <div class="mountain-container">
         <svg class="mountain-svg" id="mountainSvg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMax meet">
-          <defs>
-            <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" style="stop-color:#0f172a" />
-              <stop offset="50%" style="stop-color:#1e293b" />
-              <stop offset="100%" style="stop-color:#334155" />
-            </linearGradient>
-            <linearGradient id="mountainGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-              <stop offset="0%" style="stop-color:#1e293b" />
-              <stop offset="60%" style="stop-color:#334155" />
-              <stop offset="100%" style="stop-color:#475569" />
-            </linearGradient>
-            <linearGradient id="snowGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-              <stop offset="0%" style="stop-color:#94a3b8" />
-              <stop offset="100%" style="stop-color:#f1f5f9" />
-            </linearGradient>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
-              <feMerge>
-                <feMergeNode in="coloredBlur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <!-- Mountain silhouette -->
-          <path id="mountainPath" class="mountain-path" d="" fill="url(#mountainGrad)" />
-          <!-- Ledges (tasks) drawn by JS -->
-          <g id="ledgesGroup"></g>
-          <!-- Summit cap -->
-          <path id="summitCap" class="summit-cap" d="" fill="url(#snowGrad)" filter="url(#glow)" />
-          <!-- Climber position -->
-          <g id="climberGroup">
-            <circle id="climberDot" class="climber-dot" r="8" fill="#fbbf24" filter="url(#glow)" />
-          </g>
-        </svg>
+  <defs>
+    <linearGradient id="rockGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#b98a5d" />
+      <stop offset="100%" style="stop-color:#8e6239" />
+    </linearGradient>
+    <linearGradient id="snowGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#e2e8f0" />
+      <stop offset="100%" style="stop-color:#94a3b8" />
+    </linearGradient>
+  </defs>
+
+  <path d="M550 500 L700 250 L850 500" fill="#5c4033" stroke="black" stroke-width="3" />
+
+  <path id="mountainRock" d="M400 100 L700 500 L400 500 Z" fill="url(#rockGrad)" />
+  <path id="mountainSnow" d="M400 100 L100 500 L400 500 Z" fill="url(#snowGrad)" />
+  <path d="M400 100 L430 180 L400 210 L370 190 L340 240 L310 200 Z" fill="white" />
+
+  <path d="M100 500 L400 100 L700 500" 
+        fill="none" 
+        stroke="black" 
+        stroke-width="2" 
+        stroke-linejoin="round" 
+        stroke-linecap="round" />
+  
+  <line x1="400" y1="100" x2="400" y2="500" stroke="black" stroke-width="2" opacity="0.3" />
+
+  <g id="ledgesGroup"></g>
+</svg>
       </div>
     </section>
 

@@ -279,3 +279,12 @@ goalInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') setGoal();
 addTaskBtn.addEventListener('click', addTask);
 taskInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') addTask(); });
 renderTasks();
+
+function generateMountainPath() {
+  const peakX = 400;
+  const peakY = 100;
+
+  //Create a more irregular "rocky" edge
+
+  return `M100 500 L250 350 L320 380 L${peakX} ${peakY} L480 380 L550 350 L700 500 Z`;
+}
