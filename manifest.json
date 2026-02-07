@@ -1,0 +1,18 @@
+{
+  "name": "Life as a Mountain",
+  "short_name": "Mountain",
+  "description": "Technology that helps you reach new heights. Goals become a summit, tasks become ledges.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#fbbf24",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 192 192'><rect fill='%230f172a' width='192' height='192' rx='32'/><path fill='%23475569' d='M96 160 L30 160 L96 50 L162 160 Z'/><path fill='%23e2e8f0' d='M96 95 L70 140 L122 140 Z'/><circle fill='%23fbbf24' cx='96' cy='75' r='12'/></svg>",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

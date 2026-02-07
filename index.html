@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>Life as a Mountain — Reach New Heights</title>
+  <link rel="manifest" href="manifest.json" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700;800&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="sky">
+    <div class="stars"></div>
+    <div class="gradient-sky"></div>
+    <div class="sunrise-glow"></div>
+  </div>
+
+  <header class="header">
+    <h1 class="logo">Life as a Mountain</h1>
+    <p class="tagline">Technology that helps you reach new heights</p>
+    <div class="altitude-meter">
+      <span class="altitude-label">Your altitude</span>
+      <div class="altitude-bar-wrap">
+        <div class="altitude-bar" id="altitudeBar" style="width: 0%"></div>
+      </div>
+      <span class="altitude-value" id="altitudeValue">0 m</span>
+    </div>
+  </header>
+
+  <main class="main">
+    <section class="mountain-section">
+      <div class="summit-banner" id="summitBanner">
+        <span class="summit-flag">🏔️</span>
+        <span id="goalLabel">Your summit</span>
+      </div>
+      <div class="mountain-container">
+        <svg class="mountain-svg" id="mountainSvg" viewBox="0 0 800 500" preserveAspectRatio="xMidYMax meet">
+          <defs>
+            <linearGradient id="skyGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+              <stop offset="0%" style="stop-color:#0f172a" />
+              <stop offset="50%" style="stop-color:#1e293b" />
+              <stop offset="100%" style="stop-color:#334155" />
+            </linearGradient>
+            <linearGradient id="mountainGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" style="stop-color:#1e293b" />
+              <stop offset="60%" style="stop-color:#334155" />
+              <stop offset="100%" style="stop-color:#475569" />
+            </linearGradient>
+            <linearGradient id="snowGrad" x1="0%" y1="100%" x2="0%" y2="0%">
+              <stop offset="0%" style="stop-color:#94a3b8" />
+              <stop offset="100%" style="stop-color:#f1f5f9" />
+            </linearGradient>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="coloredBlur" />
+              <feMerge>
+                <feMergeNode in="coloredBlur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <!-- Mountain silhouette -->
+          <path id="mountainPath" class="mountain-path" d="" fill="url(#mountainGrad)" />
+          <!-- Ledges (tasks) drawn by JS -->
+          <g id="ledgesGroup"></g>
+          <!-- Summit cap -->
+          <path id="summitCap" class="summit-cap" d="" fill="url(#snowGrad)" filter="url(#glow)" />
+          <!-- Climber position -->
+          <g id="climberGroup">
+            <circle id="climberDot" class="climber-dot" r="8" fill="#fbbf24" filter="url(#glow)" />
+          </g>
+        </svg>
+      </div>
+    </section>
+
+    <section class="controls">
+      <div class="goal-card card">
+        <h2>Set your summit</h2>
+        <p class="hint">Your big goal — the peak you're climbing toward.</p>
+        <div class="input-row">
+          <input type="text" id="goalInput" placeholder="e.g. Ship my hackathon project" maxlength="60" />
+          <button type="button" id="setGoalBtn" class="btn btn-primary">Set goal</button>
+        </div>
+      </div>
+
+      <div class="tasks-card card">
+        <h2>Your ledges</h2>
+        <p class="hint">Each task is a ledge. Complete them to climb higher.</p>
+        <div class="input-row">
+          <input type="text" id="taskInput" placeholder="Add a task (ledge)" maxlength="50" />
+          <button type="button" id="addTaskBtn" class="btn btn-primary">Add</button>
+        </div>
+        <ul class="task-list" id="taskList"></ul>
+      </div>
+
+      <div class="motivation-card card" id="motivationCard">
+        <p class="motivation-text" id="motivationText">Add a goal and tasks to start your climb.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p>Hacklahoma — Life as a Mountain · Reach new heights, one ledge at a time.</p>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

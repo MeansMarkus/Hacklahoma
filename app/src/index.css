@@ -1,0 +1,22 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-sky-deep text-slate-100 min-h-screen min-h-[100dvh] overflow-x-hidden;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+}
+
+/* Summit celebration toast */
+.summit-toast-enter {
+  opacity: 0;
+  transform: translate(-50%, 20px);
+}
+.summit-toast-enter-active {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+
