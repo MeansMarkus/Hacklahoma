@@ -569,9 +569,8 @@ function Climber({ steps, targetIndex, controlsRef, isLocked, light, suspendCame
                 state.camera.position.lerp(desiredCamPos, 0.05);
                 controlsRef.current.update();
             } else if (!suspendCamera && !isLocked && controlsRef && controlsRef.current) {
-                // In free mode, smoothy lerp the target to the mountain center (0, 1, 0)
-                // This ensures the camera rotates around the mountain, not where it was last left
-                const mountainCenter = new THREE.Vector3(0, 1, 0);
+                // In free mode, keep orbit centered on the active mountain slot.
+                const mountainCenter = new THREE.Vector3(origin?.x || 0, 1, origin?.z || 0);
                 controlsRef.current.target.lerp(mountainCenter, 0.1);
                 controlsRef.current.update();
             }
@@ -876,11 +875,30 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
         c2: new THREE.Vector3(),
     })
 
+    const didInitCameraRef = useRef(false)
+
     const transitionCounterRef = useRef(0)
 
     React.useEffect(() => {
         if (!camera) return
         if (!controlsRef.current) return
+
+        if (!didInitCameraRef.current) {
+            const seedInt = makeSeedInt(mountainId || 'default')
+            const a = hashToUnitFloat(seedInt + 1234) * Math.PI * 2
+            const dist = 10.5 + hashToUnitFloat(seedInt + 2222) * 3.5
+            const height = 2.2 + hashToUnitFloat(seedInt + 3333) * 1.5
+            const center = new THREE.Vector3(mountainOrigin.x, 1, mountainOrigin.z)
+
+            camera.position.set(
+                mountainOrigin.x + Math.sin(a) * dist,
+                height,
+                mountainOrigin.z + Math.cos(a) * dist
+            )
+            controlsRef.current.target.copy(center)
+            controlsRef.current.update()
+            didInitCameraRef.current = true
+        }
 
         const seedInt = makeSeedInt(mountainId || 'default')
         transitionCounterRef.current += 1
@@ -1129,6 +1147,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
                     controlsRef={controlsRef}
                     isLocked={isLocked || isTouring}
                     light={theme.climberLight}
+                    origin={mountainOrigin}
                 />
 
                 <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
