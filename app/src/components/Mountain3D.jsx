@@ -437,6 +437,10 @@ function CheckpointFlags({ steps, doneCount, tasks, activeFlagIndex, onFlagHover
                 const isReached = cp.checkpointIndex < doneCount;
                 if (!isReached) return null; // Only show flags for reached checkpoints
 
+                // If summit is reached, hide the last flag (penguin is holding it)
+                const isSummit = tasks && doneCount === tasks.length;
+                if (isSummit && i === checkpoints.length - 1) return null;
+
                 const task = tasks && tasks[cp.checkpointIndex]; // Get associated task
 
                 return (
@@ -489,7 +493,7 @@ function CheckpointFlags({ steps, doneCount, tasks, activeFlagIndex, onFlagHover
 }
 
 // Animated Climber Component - Detailed Penguin
-function Climber({ steps, targetIndex, controlsRef, isLocked, light, suspendCamera, origin, isTouring }) {
+function Climber({ steps, targetIndex, controlsRef, isLocked, light, suspendCamera, origin, isTouring, isSummitReached }) {
     const groupRef = React.useRef();
     const bodyRef = React.useRef();
     const leftWingRef = React.useRef();
@@ -499,11 +503,12 @@ function Climber({ steps, targetIndex, controlsRef, isLocked, light, suspendCame
     const currentIndex = React.useRef(targetIndex);
 
     // If we jump from near summit to bottom (e.g. tour start), snap current index
+    // Teleport logic: If touring and jumping down significantly (e.g. start of tour), snap instantly
     React.useEffect(() => {
-        if (isTouring && targetIndex === 0 && currentIndex.current > steps.length * 0.5) {
-            currentIndex.current = 0;
+        if (isTouring && currentIndex.current > targetIndex + 10) {
+            currentIndex.current = targetIndex;
         }
-    }, [isTouring, targetIndex, steps.length]);
+    }, [isTouring, targetIndex]);
 
     useFrame((state, delta) => {
         if (!steps || steps.length === 0) return;
@@ -702,6 +707,20 @@ function Climber({ steps, targetIndex, controlsRef, isLocked, light, suspendCame
                             <meshToonMaterial color="#f97316" />
                         </mesh>
                     </group>
+
+                    {/* Held Flag (Only if Summit Reached) */}
+                    {isSummitReached && (
+                        <group position={[0.25, 0.45, 0.2]} rotation={[0, 0, -0.3]}>
+                            <mesh position={[0, 0.25, 0]}>
+                                <cylinderGeometry args={[0.01, 0.01, 0.5]} />
+                                <meshStandardMaterial color="#cbd5e1" />
+                            </mesh>
+                            <mesh position={[0.12, 0.4, 0]} rotation={[0, 0, 0]}>
+                                <boxGeometry args={[0.24, 0.16, 0.01]} />
+                                <meshStandardMaterial color="#fbbf24" />
+                            </mesh>
+                        </group>
+                    )}
                 </group>
             </group>
         </group>
@@ -1137,6 +1156,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay, isTouring, tourIn
                     light={theme.climberLight}
                     origin={mountainOrigin}
                     isTouring={isTouring}
+                    isSummitReached={doneCount === tasks.length && tasks.length > 0}
                 />
 
                 <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
@@ -1173,7 +1193,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay, isTouring, tourIn
             />
 
             {/* Victory Tour UI Overlay - REMOVED from Scene */}
-            
+
             {/* Replay Button Overlay - REMOVED from Scene */}
         </group>
     )
@@ -1190,19 +1210,33 @@ export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId, tim
 
     const doneCount = tasks.filter(t => t.done).length;
 
-    // Start tour when summit reached
+    // Start tour when summit reached (ONLY if just completed)
+    const prevDoneCountRef = useRef(0);
+    const prevMountainIdRef = useRef(mountainId);
+
     React.useEffect(() => {
+        const prevDoneCount = prevDoneCountRef.current;
+        const prevMountainId = prevMountainIdRef.current;
+
+        // Trigger ONLY if we hit 100% on THIS mountain, and we weren't there before
+        // AND we didn't just switch mountains (which would artificially change doneCount)
         if (tasks.length > 0 && doneCount === tasks.length) {
-            if (!isTouring) {
-                setIsTouring(true);
-                setTourIndex(0);
-                setIsAutomatedTour(true);
+            if (prevDoneCount < tasks.length && mountainId === prevMountainId) {
+                if (!isTouring) {
+                    setIsTouring(true);
+                    setTourIndex(0);
+                    setIsAutomatedTour(true);
+                }
             }
         } else {
             setIsTouring(false);
             setIsAutomatedTour(false);
         }
-    }, [doneCount, tasks.length]);
+
+        // Update refs for next render
+        prevDoneCountRef.current = doneCount;
+        prevMountainIdRef.current = mountainId;
+    }, [doneCount, tasks.length, mountainId, isTouring]);
 
     // Manual Navigation Handlers
     const handleNext = React.useCallback(() => {
@@ -1348,11 +1382,11 @@ export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId, tim
                     camera={{ position: [0, 2, 8], fov: 50 }}
                     gl={{ alpha: true }}
                 >
-                    <Scene 
-                        tasks={tasks} 
-                        goal={goal} 
-                        isLocked={isLocked} 
-                        mountainId={mountainId} 
+                    <Scene
+                        tasks={tasks}
+                        goal={goal}
+                        isLocked={isLocked}
+                        mountainId={mountainId}
                         timeOfDay={timeOfDay}
                         isTouring={isTouring}
                         tourIndex={tourIndex}

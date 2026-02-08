@@ -15,6 +15,7 @@
     "@capacitor/core": "^6.1.2",
     "@react-three/drei": "^9.122.0",
     "@react-three/fiber": "^8.2.2",
+    "canvas-confetti": "^1.9.4",
     "firebase": "^12.9.0",
     "framer-motion": "^12.33.0",
     "framer-motion-3d": "^12.4.13",
