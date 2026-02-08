@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Stars, Float, Text, Outlines } from '@react-three/drei'
+import { OrbitControls, Stars, Float, Text, Outlines, Billboard } from '@react-three/drei'
 import * as THREE from 'three'
 
 // -- Constants
@@ -157,10 +157,12 @@ function CheckpointFlags({ steps, doneCount }) {
     )
 }
 
-// Animated Climber Component
+// Animated Climber Component - Detailed Penguin
 function Climber({ steps, targetIndex }) {
     const groupRef = React.useRef();
     const bodyRef = React.useRef();
+    const leftWingRef = React.useRef();
+    const rightWingRef = React.useRef();
 
     // Track current position as a float index along the steps array
     const currentIndex = React.useRef(0);
@@ -237,23 +239,83 @@ function Climber({ steps, targetIndex }) {
 
     return (
         <group ref={groupRef}>
-            <group ref={bodyRef}> {/* Animated body parts */}
-                <group rotation={[0, 0, 0]}>
-                    {/* Body */}
-                    <mesh position={[0, 0.2, 0]}>
-                        <capsuleGeometry args={[0.1, 0.2, 4, 8]} />
-                        <meshStandardMaterial color="#1a1a1a" />
+            <group ref={bodyRef}>
+                <group rotation={[0, 0, 0]}> {/* Face forward relative to path */}
+
+                    {/* -- DETAILED PENGUIN MESH -- */}
+
+                    {/* Main Body (Egg-ish) */}
+                    <mesh position={[0, 0.25, 0]} scale={[1, 1.3, 1]}>
+                        <sphereGeometry args={[0.16, 32, 32]} />
+                        <meshToonMaterial color="#1a1a1a" />
                     </mesh>
-                    {/* Belly */}
-                    <mesh position={[0, 0.18, 0.08]} scale={[0.8, 0.6, 0.5]}>
-                        <sphereGeometry args={[0.1]} />
-                        <meshStandardMaterial color="white" />
+
+                    {/* Belly (White Patch) */}
+                    <mesh position={[0, 0.22, 0.12]} scale={[0.9, 1.1, 0.5]}>
+                        <sphereGeometry args={[0.13, 32, 32]} />
+                        <meshToonMaterial color="white" />
                     </mesh>
+
+                    {/* Head */}
+                    <mesh position={[0, 0.48, 0]}>
+                        <sphereGeometry args={[0.11, 32, 32]} />
+                        <meshToonMaterial color="#1a1a1a" />
+                    </mesh>
+
+                    {/* Eyes */}
+                    <group position={[0, 0.48, 0.09]}>
+                        {/* Left Eye */}
+                        <mesh position={[-0.04, 0.02, 0]}>
+                            <sphereGeometry args={[0.03]} />
+                            <meshToonMaterial color="white" />
+                        </mesh>
+                        <mesh position={[-0.04, 0.02, 0.025]}>
+                            <sphereGeometry args={[0.01]} />
+                            <meshStandardMaterial color="black" />
+                        </mesh>
+
+                        {/* Right Eye */}
+                        <mesh position={[0.04, 0.02, 0]}>
+                            <sphereGeometry args={[0.03]} />
+                            <meshToonMaterial color="white" />
+                        </mesh>
+                        <mesh position={[0.04, 0.02, 0.025]}>
+                            <sphereGeometry args={[0.01]} />
+                            <meshStandardMaterial color="black" />
+                        </mesh>
+                    </group>
+
                     {/* Beak */}
-                    <mesh position={[0, 0.35, 0.1]} rotation={[0.2, 0, 0]}>
-                        <coneGeometry args={[0.04, 0.1, 8]} />
-                        <meshStandardMaterial color="#ea580c" />
+                    <mesh position={[0, 0.46, 0.11]} rotation={[0.2, 0, 0]}>
+                        <coneGeometry args={[0.03, 0.08, 16]} />
+                        <meshToonMaterial color="#f97316" />
                     </mesh>
+
+                    {/* Wings */}
+                    <group position={[-0.14, 0.35, 0]} ref={leftWingRef}>
+                        <mesh position={[0, -0.1, 0]} rotation={[0, 0, 0.2]} scale={[0.2, 1, 0.5]}>
+                            <sphereGeometry args={[0.12]} />
+                            <meshToonMaterial color="#1a1a1a" />
+                        </mesh>
+                    </group>
+                    <group position={[0.14, 0.35, 0]} ref={rightWingRef}>
+                        <mesh position={[0, -0.1, 0]} rotation={[0, 0, -0.2]} scale={[0.2, 1, 0.5]}>
+                            <sphereGeometry args={[0.12]} />
+                            <meshToonMaterial color="#1a1a1a" />
+                        </mesh>
+                    </group>
+
+                    {/* Feet */}
+                    <group position={[0, 0.05, 0]}>
+                        <mesh position={[-0.08, 0, 0.05]}>
+                            <boxGeometry args={[0.08, 0.03, 0.12]} />
+                            <meshToonMaterial color="#f97316" />
+                        </mesh>
+                        <mesh position={[0.08, 0, 0.05]}>
+                            <boxGeometry args={[0.08, 0.03, 0.12]} />
+                            <meshToonMaterial color="#f97316" />
+                        </mesh>
+                    </group>
                 </group>
             </group>
         </group>
@@ -372,17 +434,24 @@ function Scene({ tasks, goal }) {
             <Climber steps={steps} targetIndex={targetStepIndex} />
 
             <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
-                <Text
-                    position={[0, 4.5, 0]}
-                    fontSize={0.5}
-                    color="#f1f5f9"
-                    anchorX="center"
-                    anchorY="middle"
-                    outlineWidth={0.02}
-                    outlineColor="#000000"
+                <Billboard
+                    follow={true}
+                    lockX={false}
+                    lockY={false}
+                    lockZ={false} // Lock the rotation on the z axis (default=false)
                 >
-                    {goal || "Summit"}
-                </Text>
+                    <Text
+                        position={[0, 4.5, 0]}
+                        fontSize={0.5}
+                        color="#f1f5f9"
+                        anchorX="center"
+                        anchorY="middle"
+                        outlineWidth={0.02}
+                        outlineColor="#000000"
+                    >
+                        {goal || "Summit"}
+                    </Text>
+                </Billboard>
             </Float>
 
             {/* Orbit controls limited to keep mountain in view */}
