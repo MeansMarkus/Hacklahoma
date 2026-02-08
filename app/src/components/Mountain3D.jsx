@@ -1,27 +1,77 @@
-import React, { useMemo } from 'react'
-import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Stars, Float, Text } from '@react-three/drei'
+import React, { useMemo, useRef } from 'react'
+import { Canvas, useFrame } from '@react-three/fiber'
+import { OrbitControls, Stars, Float, Text, Outlines } from '@react-three/drei'
 import * as THREE from 'three'
 
 // -- Constants
-const MOUNTAIN_COLOR = '#475569'
-const MOUNTAIN_ACCENT = '#94a3b8'
-const STEP_COLOR = '#334155'
-const STEP_ACTIVE_COLOR = '#fbbf24' // Selection/Next
-const STEP_REACHED_COLOR = '#34d399' // Completed
+const MOUNTAIN_COLOR = '#60a5fa' // Lighter Cartoon Blue
+const MOUNTAIN_ACCENT = '#bfdbfe'
+const STEP_COLOR = '#8B4513' // SaddleBrown
+const STEP_ACTIVE_COLOR = '#facc15' // Cartoon Yellow
+const STEP_REACHED_COLOR = '#4ade80' // Cartoon Green
 
 function MountainMesh() {
+    const { geometry, material } = useMemo(() => {
+        // High segment for smooth outlines/toon curves
+        const geo = new THREE.ConeGeometry(3, 5, 128, 64);
+
+        const posAttribute = geo.getAttribute('position');
+        const vertex = new THREE.Vector3();
+        const colors = [];
+
+        const colorBase = new THREE.Color(MOUNTAIN_COLOR);
+        const colorSnow = new THREE.Color('#ffffff'); // Pure white
+        const colorShadow = new THREE.Color('#2563eb'); // Dark Blue Shadow
+
+        for (let i = 0; i < posAttribute.count; i++) {
+            vertex.fromBufferAttribute(posAttribute, i);
+
+            // Cartoon displacement: Soft, large waves. No jagged noise.
+            const angle = Math.atan2(vertex.z, vertex.x);
+            // Simple curvy distortion
+            const wave = Math.sin(angle * 5) * 0.15 + Math.cos(vertex.y * 2.0) * 0.1;
+
+            const radius = Math.sqrt(vertex.x * vertex.x + vertex.z * vertex.z);
+            if (radius > 0.1) {
+                // Taper effect + wave
+                const factor = 1 + wave * (1.0 - (vertex.y + 2.5) / 5.0 * 0.5);
+                vertex.x *= factor;
+                vertex.z *= factor;
+            }
+
+            // Write back
+            posAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
+
+            // Cartoon Color Logic: Sharp Bands
+            const snowThreshold = 1.0 + Math.sin(angle * 3) * 0.2;
+
+            let finalColor;
+            if (vertex.y > snowThreshold) {
+                finalColor = colorSnow;
+            } else {
+                if (vertex.y < -1.0) {
+                    finalColor = colorShadow;
+                } else {
+                    finalColor = colorBase;
+                }
+            }
+            colors.push(finalColor.r, finalColor.g, finalColor.b);
+        }
+
+        geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
+        geo.computeVertexNormals();
+
+        const mat = new THREE.MeshToonMaterial({
+            vertexColors: true,
+        });
+
+        return { geometry: geo, material: mat };
+    }, []);
+
     return (
         <group position={[0, -2, 0]}>
-            {/* Main Peak */}
-            <mesh position={[0, 2.5, 0]}>
-                <coneGeometry args={[3, 5, 32]} /> {/* Smooth cone */}
-                <meshStandardMaterial color={MOUNTAIN_COLOR} roughness={0.8} />
-            </mesh>
-            {/* Snow Cap */}
-            <mesh position={[0, 3.8, 0]}>
-                <coneGeometry args={[0.8, 1.2, 32]} />
-                <meshStandardMaterial color="#f1f5f9" roughness={0.3} />
+            <mesh geometry={geometry} material={material} position={[0, 2.5, 0]} castShadow receiveShadow>
+                <Outlines thickness={0.05} color="#1e1b4b" />
             </mesh>
         </group>
     )
@@ -50,7 +100,7 @@ function Staircase({ steps, doneCount }) {
                 } else {
                     // Normal steps are just path color
                     if (step.overallIndex < (steps.find(s => s.checkpointIndex === doneCount)?.overallIndex || -1)) {
-                        color = '#475569'; // Traveled path
+                        color = '#b45309'; // Traveled path (darker wood)
                     }
                 }
 
@@ -107,26 +157,104 @@ function CheckpointFlags({ steps, doneCount }) {
     )
 }
 
-function Climber({ position, rotation }) {
-    // 3D Penguin / Character
+// Animated Climber Component
+function Climber({ steps, targetIndex }) {
+    const groupRef = React.useRef();
+    const bodyRef = React.useRef();
+
+    // Track current position as a float index along the steps array
+    const currentIndex = React.useRef(0);
+
+    useFrame((state, delta) => {
+        if (!steps || steps.length === 0) return;
+
+        // Smoothly interpolate current index to target index
+        const speed = 2.0; // Steps per second
+        const diff = targetIndex - currentIndex.current;
+
+        // If difference is small, snap to target
+        if (Math.abs(diff) < 0.05) {
+            currentIndex.current = targetIndex;
+        } else {
+            // Move towards target
+            const move = Math.sign(diff) * Math.min(Math.abs(diff), speed * delta * 15); // Adjust multiplier for desired speed
+            currentIndex.current += move;
+        }
+
+        // Calculate Position and Rotation based on intermediate index
+        const idxString = Math.floor(currentIndex.current);
+        const idxNext = Math.min(idxString + 1, steps.length - 1);
+        const fraction = currentIndex.current - idxString;
+
+        const stepA = steps[Math.max(0, Math.min(idxString, steps.length - 1))];
+        const stepB = steps[Math.max(0, Math.min(idxNext, steps.length - 1))];
+
+        if (!stepA || !stepB) return;
+
+        // Lerp position
+        const posA = new THREE.Vector3(...stepA.position);
+        const posB = new THREE.Vector3(...stepB.position);
+        const currentPos = posA.lerp(posB, fraction);
+
+        // Helper to lerp rotation (Euler) roughly
+        // Ideally we use Quaternions but for simple Y-rotation this works if no wrapping issues
+        const rotA = stepA.rotation[1];
+        let rotB = stepB.rotation[1];
+
+        // Handle wrapping? The spiral just rotates continuously, so typical linear lerp on Y is fine 
+        // unless it crosses PI/-PI boundary weirdly.
+        // Given the generation logic "rotation = [0, -angle, 0]", angle increases monotonically. 
+        // But -angle decreases monotonically. No wrapping jump issues usually.
+        const currentRotY = rotA + (rotB - rotA) * fraction;
+
+        // Apply to group
+        if (groupRef.current) {
+            groupRef.current.position.set(currentPos.x, currentPos.y + 0.05, currentPos.z);
+            groupRef.current.rotation.set(0, currentRotY, 0);
+        }
+
+        // Waddle Animation
+        if (Math.abs(diff) > 0.05) {
+            // Walking
+            const time = state.clock.elapsedTime * 15;
+            const waddle = Math.sin(time) * 0.1;
+            const bounce = Math.abs(Math.cos(time)) * 0.05;
+
+            if (bodyRef.current) {
+                bodyRef.current.rotation.z = waddle;
+                bodyRef.current.position.y = bounce;
+            }
+        } else {
+            // Idle breathing
+            const time = state.clock.elapsedTime * 2;
+            const breathe = Math.sin(time) * 0.01;
+            if (bodyRef.current) {
+                bodyRef.current.rotation.z = THREE.MathUtils.lerp(bodyRef.current.rotation.z, 0, 0.1);
+                bodyRef.current.position.y = THREE.MathUtils.lerp(bodyRef.current.position.y, breathe, 0.1);
+            }
+        }
+    });
+
     return (
-        <group position={[position[0], position[1] + 0.05, position[2]]} rotation={rotation || [0, 0, 0]}>
-            <group rotation={[0, 0, 0]}> {/* Face forward relative to path (Box Z is Tangent, Penguin faces Z) */}
-                {/* Body */}
-                <mesh position={[0, 0.2, 0]}>
-                    <capsuleGeometry args={[0.1, 0.2, 4, 8]} />
-                    <meshStandardMaterial color="#1a1a1a" />
-                </mesh>
-                {/* Belly */}
-                <mesh position={[0, 0.18, 0.08]} scale={[0.8, 0.6, 0.5]}>
-                    <sphereGeometry args={[0.1]} />
-                    <meshStandardMaterial color="white" />
-                </mesh>
-                {/* Beak */}
-                <mesh position={[0, 0.35, 0.1]} rotation={[0.2, 0, 0]}>
-                    <coneGeometry args={[0.04, 0.1, 8]} />
-                    <meshStandardMaterial color="#ea580c" />
-                </mesh>
+        <group ref={groupRef}>
+            <group ref={bodyRef}> {/* Animated body parts */}
+                <group rotation={[0, 0, 0]}>
+                    {/* Body */}
+                    <mesh position={[0, 0.2, 0]}>
+                        <capsuleGeometry args={[0.1, 0.2, 4, 8]} />
+                        <meshStandardMaterial color="#1a1a1a" />
+                    </mesh>
+                    {/* Belly */}
+                    <mesh position={[0, 0.18, 0.08]} scale={[0.8, 0.6, 0.5]}>
+                        <sphereGeometry args={[0.1]} />
+                        <meshStandardMaterial color="white" />
+                    </mesh>
+                    {/* Beak */}
+                    <mesh position={[0, 0.35, 0.1]} rotation={[0.2, 0, 0]}>
+                        <coneGeometry args={[0.04, 0.1, 8]} />
+                        <meshStandardMaterial color="#ea580c" />
+                    </mesh>
+                </group>
             </group>
         </group>
     )
@@ -168,8 +296,8 @@ function useStaircasePath(tasks) {
             const y = startY + t * (endY - startY);
             const radius = getRadius(y);
 
-            const x = Math.cos(angle) * (radius + 0.2); // Start slightly outside surface
-            const z = Math.sin(angle) * (radius + 0.2);
+            const x = Math.cos(angle) * (radius + 0.6); // Start slightly outside surface
+            const z = Math.sin(angle) * (radius + 0.6);
 
             const position = [x, y, z];
             // Rotate to align with radial outward direction
@@ -232,8 +360,8 @@ function Scene({ tasks, goal }) {
 
     return (
         <group>
-            <ambientLight intensity={0.5} />
-            <directionalLight position={[10, 10, 5]} intensity={1} castShadow />
+            <ambientLight intensity={0.7} />
+            <directionalLight position={[10, 10, 5]} intensity={1.5} castShadow />
             <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
             <MountainMesh />
@@ -241,7 +369,7 @@ function Scene({ tasks, goal }) {
             <Staircase steps={steps} doneCount={doneCount} />
             <CheckpointFlags steps={steps} doneCount={doneCount} />
 
-            <Climber position={currentStep.position} rotation={currentStep.rotation} />
+            <Climber steps={steps} targetIndex={targetStepIndex} />
 
             <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
                 <Text
