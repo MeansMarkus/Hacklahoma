@@ -23,7 +23,7 @@ export default function LoginScreen({
                   Base Camp Access
                 </div>
                 <h1 className="font-display text-3xl leading-tight text-slate-50 md:text-4xl">
-                  Step into your ascent.
+                  Step into your peak.
                 </h1>
                 <p className="text-sm text-slate-300 md:text-base">
                   Log your ledges, track altitude, and celebrate each summit with a mountain that grows with you.
