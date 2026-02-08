@@ -8,7 +8,6 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage'
 import { auth, db, storage, firebaseReady } from './firebase'
-// import Sky from './components/Sky' // Removed
 import Mountain3D from './components/Mountain3D'
 import GoalCard from './components/GoalCard'
 import TaskList from './components/TaskList'
@@ -16,6 +15,8 @@ import CompletedTaskList from './components/CompletedTaskList'
 import MotivationCard from './components/MotivationCard'
 import SummitCelebration from './components/SummitCelebration'
 import LoginScreen from './components/LoginScreen'
+import NavigationArrows from './components/NavigationArrows'
+import MountainListTab from './components/MountainListTab'
 import {
   STORAGE_KEY,
   MAX_ALTITUDE,
@@ -26,22 +27,43 @@ import {
   MAX_TASK_COUNT,
 } from './constants'
 
+function generateId() {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2)
+}
+
 function loadState() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
-      return {
+      // Migration check: if 'mountains' exists, return it, else migrate single goal
+      if (Array.isArray(parsed.mountains)) {
+        return {
+          mountains: parsed.mountains,
+          currentMountainId: parsed.currentMountainId || parsed.mountains[0]?.id
+        }
+      }
+      // Old format migration
+      const initialMountain = {
+        id: generateId(),
         goal: parsed.goal || '',
         tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+        createdAt: Date.now()
+      }
+      return {
+        mountains: [initialMountain],
+        currentMountainId: initialMountain.id
       }
     }
   } catch (_) { }
-  return { goal: '', tasks: [] }
+
+  // Default fresh state
+  const newMountain = { id: generateId(), goal: '', tasks: [], createdAt: Date.now() }
+  return { mountains: [newMountain], currentMountainId: newMountain.id }
 }
 
-function saveState(goal, tasks) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ goal, tasks }))
+function saveState(mountains, currentMountainId) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ mountains, currentMountainId }))
 }
 
 function getProgress(tasks) {
@@ -66,26 +88,6 @@ function normalizeForCompare(text) {
   return normalizeTaskText(text).toLowerCase()
 }
 
-function isDataUrl(value) {
-  return typeof value === 'string' && value.startsWith('data:')
-}
-
-async function migrateLocalPhotos(uid, tasks) {
-  if (!storage) return tasks
-
-  const migrated = await Promise.all(
-    tasks.map(async (task) => {
-      if (!isDataUrl(task.photo)) return task
-      const photoRef = ref(storage, `users/${uid}/tasks/${task.id}`)
-      await uploadString(photoRef, task.photo, 'data_url')
-      const url = await getDownloadURL(photoRef)
-      return { ...task, photo: url }
-    })
-  )
-
-  return migrated
-}
-
 function extractJsonFromText(text) {
   const start = text.indexOf('{')
   const end = text.lastIndexOf('}')
@@ -96,8 +98,9 @@ function extractJsonFromText(text) {
 }
 
 export default function App() {
-  const [goal, setGoal] = useState('')
-  const [tasks, setTasks] = useState([])
+  const [mountains, setMountains] = useState([])
+  const [currentMountainId, setCurrentMountainId] = useState(null)
+
   const [showCelebration, setShowCelebration] = useState(false)
   const [celebrated, setCelebrated] = useState(false)
   const [taskCount, setTaskCount] = useState(DEFAULT_TASK_COUNT)
@@ -111,11 +114,12 @@ export default function App() {
   const [authBusy, setAuthBusy] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
 
+  // Initialization & Auth
   useEffect(() => {
     if (!firebaseReady) {
       const local = loadState()
-      setGoal(local.goal)
-      setTasks(local.tasks)
+      setMountains(local.mountains)
+      setCurrentMountainId(local.currentMountainId)
       setIsHydrated(true)
       return
     }
@@ -130,21 +134,38 @@ export default function App() {
 
           if (snapshot.exists()) {
             const data = snapshot.data() || {}
-            setGoal(typeof data.goal === 'string' ? data.goal : '')
-            setTasks(Array.isArray(data.tasks) ? data.tasks : [])
+
+            // Handle migration from single goal to mountains array
+            if (Array.isArray(data.mountains)) {
+              setMountains(data.mountains)
+              setCurrentMountainId(data.currentMountainId || data.mountains[0]?.id)
+            } else {
+              // Migrate existing single goal
+              const initialMountain = {
+                id: generateId(),
+                goal: typeof data.goal === 'string' ? data.goal : '',
+                tasks: Array.isArray(data.tasks) ? data.tasks : [],
+                createdAt: Date.now()
+              }
+              setMountains([initialMountain])
+              setCurrentMountainId(initialMountain.id)
+            }
           } else {
-            setGoal('')
-            setTasks([])
-            await setDoc(docRef, {
-              goal: '',
-              tasks: [],
+            // New user, create initial mountain
+            const newMountain = { id: generateId(), goal: '', tasks: [], createdAt: Date.now() }
+            const initialData = {
+              mountains: [newMountain],
+              currentMountainId: newMountain.id,
               updatedAt: serverTimestamp(),
-            })
+            }
+            await setDoc(docRef, initialData)
+            setMountains(initialData.mountains)
+            setCurrentMountainId(initialData.currentMountainId)
           }
         } else {
           const local = loadState()
-          setGoal(local.goal)
-          setTasks(local.tasks)
+          setMountains(local.mountains)
+          setCurrentMountainId(local.currentMountainId)
         }
       } catch (error) {
         console.error('Failed to load user state', error)
@@ -156,12 +177,17 @@ export default function App() {
     return () => unsubscribe()
   }, [])
 
+  // Persistence (Save on Change)
   useEffect(() => {
     if (!isHydrated) return
 
     if (firebaseReady && user) {
       const docRef = doc(db, 'users', user.uid, 'state', 'current')
-      const payload = { goal, tasks, updatedAt: serverTimestamp() }
+      const payload = {
+        mountains,
+        currentMountainId,
+        updatedAt: serverTimestamp()
+      }
       const timeout = setTimeout(() => {
         setDoc(docRef, payload, { merge: true }).catch((error) => {
           console.error('Failed to save user state', error)
@@ -171,14 +197,20 @@ export default function App() {
       return () => clearTimeout(timeout)
     }
 
-    saveState(goal, tasks)
-  }, [goal, tasks, user, isHydrated, firebaseReady])
+    saveState(mountains, currentMountainId)
+  }, [mountains, currentMountainId, user, isHydrated, firebaseReady])
+
+  // Derive Current Mountain Data
+  const currentMountainIndex = mountains.findIndex(m => m.id === currentMountainId)
+  const currentMountain = mountains[currentMountainIndex] || { goal: '', tasks: [] }
+  const { goal, tasks } = currentMountain
 
   const progress = getProgress(tasks)
   const altitude = getAltitude(tasks)
   const isSummitReached = tasks.length > 0 && progress === 100
   const showLogin = firebaseReady && !user
 
+  // Celebration Check
   useEffect(() => {
     if (isSummitReached && !celebrated) {
       setShowCelebration(true)
@@ -187,74 +219,153 @@ export default function App() {
     if (!isSummitReached) setCelebrated(false)
   }, [isSummitReached, celebrated])
 
+
+  // --- Mountain Updaters Helper ---
+  const updateCurrentMountain = useCallback((updater) => {
+    setMountains(prev => prev.map(m => {
+      if (m.id === currentMountainId) {
+        return updater(m)
+      }
+      return m
+    }))
+  }, [currentMountainId])
+
+
+  // --- Handlers ---
+
   const handleSetGoal = useCallback((text) => {
-    // If we've reached the summit (all tasks done), setting a new goal implies a new adventure.
-    // Reset tasks and celebration state.
+    // Check if we need to reset tasks (new adventure logic)
     const doneCount = tasks.filter(t => t.done).length
     const total = tasks.length
     const summitReached = total > 0 && doneCount === total
 
-    if (summitReached) {
-      setTasks([])
-      setCelebrated(false)
-      setShowCelebration(false)
-    }
-    setGoal(text)
-  }, [tasks])
-  const handleAddTask = useCallback((text) => {
-    setTasks((prev) => [
-      ...prev,
-      {
-        id: Date.now().toString(36) + Math.random().toString(36).slice(2),
-        text,
-        done: false,
-      },
-    ])
-  }, [])
-  const handleToggleTask = useCallback((id) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-    )
-  }, [])
-  const handleRemoveTask = useCallback((id) => {
-    setTasks((prev) => {
-      const target = prev.find((task) => task.id === id)
-      if (firebaseReady && user && storage && target?.photo) {
-        const photoRef = ref(storage, `users/${user.uid}/tasks/${id}`)
-        deleteObject(photoRef).catch(() => { })
+    updateCurrentMountain(m => {
+      if (summitReached) {
+        setCelebrated(false)
+        setShowCelebration(false)
+        return { ...m, goal: text, tasks: [] }
       }
-      return prev.filter((t) => t.id !== id)
+      return { ...m, goal: text }
     })
-  }, [firebaseReady, user])
+  }, [tasks, updateCurrentMountain])
 
-  const handlePhotoUpdate = useCallback(async (id, photoData) => {
+  const handleAddTask = useCallback((text) => {
+    updateCurrentMountain(m => ({
+      ...m,
+      tasks: [
+        ...m.tasks,
+        {
+          id: generateId(),
+          text,
+          done: false,
+        }
+      ]
+    }))
+  }, [updateCurrentMountain])
+
+  const handleToggleTask = useCallback((taskId) => {
+    updateCurrentMountain(m => ({
+      ...m,
+      tasks: m.tasks.map(t => t.id === taskId ? { ...t, done: !t.done } : t)
+    }))
+  }, [updateCurrentMountain])
+
+  const handleRemoveTask = useCallback((taskId) => {
+    // Side effect: delete photo if exists
+    const target = tasks.find(t => t.id === taskId)
+    if (firebaseReady && user && storage && target?.photo) {
+      const photoRef = ref(storage, `users/${user.uid}/tasks/${taskId}`)
+      deleteObject(photoRef).catch(() => { })
+    }
+
+    updateCurrentMountain(m => ({
+      ...m,
+      tasks: m.tasks.filter(t => t.id !== taskId)
+    }))
+  }, [firebaseReady, user, tasks, updateCurrentMountain])
+
+  const handlePhotoUpdate = useCallback(async (taskId, photoData) => {
+    // If local or no storage, just update state
     if (!firebaseReady || !user || !storage) {
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, photo: photoData } : t))
-      )
+      updateCurrentMountain(m => ({
+        ...m,
+        tasks: m.tasks.map(t => t.id === taskId ? { ...t, photo: photoData } : t)
+      }))
       return
     }
 
-    const photoRef = ref(storage, `users/${user.uid}/tasks/${id}`)
+    const photoRef = ref(storage, `users/${user.uid}/tasks/${taskId}`)
 
     if (!photoData) {
       deleteObject(photoRef).catch(() => { })
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, photo: null } : t))
-      )
+      updateCurrentMountain(m => ({
+        ...m,
+        tasks: m.tasks.map(t => t.id === taskId ? { ...t, photo: null } : t)
+      }))
       return
     }
 
     try {
       await uploadString(photoRef, photoData, 'data_url')
       const url = await getDownloadURL(photoRef)
-      setTasks((prev) =>
-        prev.map((t) => (t.id === id ? { ...t, photo: url } : t))
-      )
+      updateCurrentMountain(m => ({
+        ...m,
+        tasks: m.tasks.map(t => t.id === taskId ? { ...t, photo: url } : t)
+      }))
     } catch (error) {
       console.error('Failed to upload photo', error)
     }
-  }, [firebaseReady, user])
+  }, [firebaseReady, user, updateCurrentMountain])
+
+
+  // --- Navigation & Mountain Management ---
+
+  const handleNextMountain = useCallback(() => {
+    const idx = mountains.findIndex(m => m.id === currentMountainId)
+    if (idx === -1) return
+
+    if (idx < mountains.length - 1) {
+      setCurrentMountainId(mountains[idx + 1].id)
+    } else {
+      // Create new mountain
+      const newMountain = { id: generateId(), goal: '', tasks: [], createdAt: Date.now() }
+      setMountains(prev => [...prev, newMountain])
+      setCurrentMountainId(newMountain.id)
+    }
+  }, [mountains, currentMountainId])
+
+  const handlePrevMountain = useCallback(() => {
+    const idx = mountains.findIndex(m => m.id === currentMountainId)
+    if (idx > 0) {
+      setCurrentMountainId(mountains[idx - 1].id)
+    }
+  }, [mountains, currentMountainId])
+
+  const handleSelectMountain = useCallback((id) => {
+    setCurrentMountainId(id)
+  }, [])
+
+  const handleDeleteMountain = useCallback((id) => {
+    if (mountains.length <= 1) return // Prevent deleting last mountain
+
+    // Determine new ID to switch to if we are deleting the current one
+    let newId = currentMountainId
+    if (id === currentMountainId) {
+      const idx = mountains.findIndex(m => m.id === id)
+      // Try to go to previous, otherwise next
+      if (idx > 0) {
+        newId = mountains[idx - 1].id
+      } else {
+        newId = mountains[idx + 1].id
+      }
+    }
+
+    setMountains(prev => prev.filter(m => m.id !== id))
+    setCurrentMountainId(newId)
+  }, [mountains, currentMountainId])
+
+
+  // --- Auth & AI Helpers (Unchanged logic, just dependencies) ---
 
   const handleSignIn = useCallback(async (event) => {
     event?.preventDefault()
@@ -287,9 +398,11 @@ export default function App() {
     if (!auth) return
     await signOut(auth)
     localStorage.removeItem(STORAGE_KEY)
-    setGoal('')
-    setTasks([])
-  }, [auth])
+    // Reset to fresh state
+    const newMountain = { id: generateId(), goal: '', tasks: [], createdAt: Date.now() }
+    setMountains([newMountain])
+    setCurrentMountainId(newMountain.id)
+  }, [])
 
   const handleTaskCountChange = useCallback((value) => {
     const parsed = Number.parseInt(value, 10)
@@ -362,8 +475,9 @@ Output schema exactly:
         .filter((text) => text.length > 0)
         .slice(0, count)
 
-      setTasks((prev) => {
-        const existing = new Set(prev.map((t) => normalizeForCompare(t.text)))
+      // Add generated tasks to current mountain
+      updateCurrentMountain(m => {
+        const existing = new Set(m.tasks.map((t) => normalizeForCompare(t.text)))
         const additions = []
 
         for (const text of normalizedTasks) {
@@ -371,15 +485,15 @@ Output schema exactly:
           if (!existing.has(key)) {
             existing.add(key)
             additions.push({
-              id: Date.now().toString(36) + Math.random().toString(36).slice(2),
+              id: generateId(),
               text,
               done: false,
             })
           }
         }
-
-        return additions.length ? [...prev, ...additions] : prev
+        return { ...m, tasks: [...m.tasks, ...additions] }
       })
+
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to generate ledges.'
@@ -387,13 +501,18 @@ Output schema exactly:
     } finally {
       setIsGenerating(false)
     }
-  }, [goal, taskCount])
+  }, [goal, taskCount, updateCurrentMountain])
 
   return (
     <>
       <div className={`relative min-h-screen overflow-hidden ${isSummitReached ? 'summit-reached' : ''}`}>
         {/* Fullscreen 3D Mountain Background */}
-        <Mountain3D goal={goal} tasks={tasks} onPhotoUpdate={handlePhotoUpdate} />
+        <Mountain3D
+          goal={goal}
+          tasks={tasks}
+          onPhotoUpdate={handlePhotoUpdate}
+          mountainId={currentMountainId}
+        />
 
         {showLogin ? (
           <LoginScreen
@@ -457,6 +576,21 @@ Output schema exactly:
                 </svg>
               </button>
             </header>
+
+            {/* New Navigation Features */}
+            <NavigationArrows
+              onPrev={handlePrevMountain}
+              onNext={handleNextMountain}
+              canGoPrev={currentMountainIndex > 0}
+              isLast={currentMountainIndex === mountains.length - 1}
+            />
+
+            <MountainListTab
+              mountains={mountains}
+              currentId={currentMountainId}
+              onSelect={handleSelectMountain}
+              onDelete={handleDeleteMountain}
+            />
 
             {/* Task Dropdown / Overlay */}
             <div

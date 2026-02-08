@@ -275,8 +275,11 @@ function Climber({ steps, targetIndex, controlsRef, isLocked }) {
 
                 controlsRef.current.update();
             } else if (!isLocked && controlsRef && controlsRef.current) {
-                // In free mode, we don't force camera position, but we might want to ensure controls are usable
-                // (OrbitControls handles itself)
+                // In free mode, smoothy lerp the target to the mountain center (0, 1, 0)
+                // This ensures the camera rotates around the mountain, not where it was last left
+                const mountainCenter = new THREE.Vector3(0, 1, 0);
+                controlsRef.current.target.lerp(mountainCenter, 0.1);
+                controlsRef.current.update();
             }
         }
 
