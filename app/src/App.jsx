@@ -37,51 +37,43 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
+
       // Migration check: if 'mountains' exists, return it, else migrate single goal
       if (Array.isArray(parsed.mountains)) {
         return {
           mountains: parsed.mountains,
-          currentMountainId: parsed.currentMountainId || parsed.mountains[0]?.id
+          currentMountainId: parsed.currentMountainId || parsed.mountains[0]?.id,
+          taskGenerationPrompt: parsed.taskGenerationPrompt || ''
         }
       }
-      // Old format migration
+
+      // Old format migration (Single goal -> Array of mountains)
       const initialMountain = {
         id: generateId(),
         goal: parsed.goal || '',
         tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
-<<<<<<< HEAD
         createdAt: Date.now()
       }
       return {
         mountains: [initialMountain],
-        currentMountainId: initialMountain.id
+        currentMountainId: initialMountain.id,
+        taskGenerationPrompt: parsed.taskGenerationPrompt || ''
       }
     }
   } catch (_) { }
 
   // Default fresh state
   const newMountain = { id: generateId(), goal: '', tasks: [], createdAt: Date.now() }
-  return { mountains: [newMountain], currentMountainId: newMountain.id }
+  return { mountains: [newMountain], currentMountainId: newMountain.id, taskGenerationPrompt: '' }
 }
 
-function saveState(mountains, currentMountainId) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ mountains, currentMountainId }))
-=======
-        taskGenerationPrompt: parsed.taskGenerationPrompt || '',
-      }
-    }
-  } catch (_) { }
-  return { goal: '', tasks: [], taskGenerationPrompt: '' }
-}
-
-function saveState(goal, tasks, taskGenerationPrompt) {
+function saveState(mountains, currentMountainId, taskGenerationPrompt) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     version: STORAGE_VERSION,
-    goal,
-    tasks,
+    mountains,
+    currentMountainId,
     taskGenerationPrompt
   }))
->>>>>>> c8e59bb52ec3051c9e1cf24c4350ac9a77d21389
 }
 
 function getProgress(tasks) {
@@ -116,15 +108,13 @@ function extractJsonFromText(text) {
 }
 
 export default function App() {
-<<<<<<< HEAD
   const [mountains, setMountains] = useState([])
   const [currentMountainId, setCurrentMountainId] = useState(null)
 
-=======
-  const [goal, setGoal] = useState('')
-  const [tasks, setTasks] = useState([])
+  // Note: taskGenerationPrompt is basically a user preference, so it can remain global 
+  // rather than per-mountain for now, unless requested otherwise.
   const [taskGenerationPrompt, setTaskGenerationPrompt] = useState('')
->>>>>>> c8e59bb52ec3051c9e1cf24c4350ac9a77d21389
+
   const [showCelebration, setShowCelebration] = useState(false)
   const [celebrated, setCelebrated] = useState(false)
   const [taskCount, setTaskCount] = useState(DEFAULT_TASK_COUNT)
@@ -142,14 +132,9 @@ export default function App() {
   useEffect(() => {
     if (!firebaseReady) {
       const local = loadState()
-<<<<<<< HEAD
       setMountains(local.mountains)
       setCurrentMountainId(local.currentMountainId)
-=======
-      setGoal(local.goal)
-      setTasks(local.tasks)
       setTaskGenerationPrompt(local.taskGenerationPrompt)
->>>>>>> c8e59bb52ec3051c9e1cf24c4350ac9a77d21389
       setIsHydrated(true)
       return
     }
@@ -164,12 +149,12 @@ export default function App() {
 
           if (snapshot.exists()) {
             const data = snapshot.data() || {}
-<<<<<<< HEAD
 
             // Handle migration from single goal to mountains array
             if (Array.isArray(data.mountains)) {
               setMountains(data.mountains)
               setCurrentMountainId(data.currentMountainId || data.mountains[0]?.id)
+              setTaskGenerationPrompt(data.taskGenerationPrompt || '')
             } else {
               // Migrate existing single goal
               const initialMountain = {
@@ -180,6 +165,7 @@ export default function App() {
               }
               setMountains([initialMountain])
               setCurrentMountainId(initialMountain.id)
+              setTaskGenerationPrompt(typeof data.taskGenerationPrompt === 'string' ? data.taskGenerationPrompt : '')
             }
           } else {
             // New user, create initial mountain
@@ -187,35 +173,19 @@ export default function App() {
             const initialData = {
               mountains: [newMountain],
               currentMountainId: newMountain.id,
-=======
-            setGoal(typeof data.goal === 'string' ? data.goal : '')
-            setTasks(Array.isArray(data.tasks) ? data.tasks : [])
-            setTaskGenerationPrompt(typeof data.taskGenerationPrompt === 'string' ? data.taskGenerationPrompt : '')
-          } else {
-            setGoal('')
-            setTasks([])
-            setTaskGenerationPrompt('')
-            await setDoc(docRef, {
-              goal: '',
-              tasks: [],
               taskGenerationPrompt: '',
->>>>>>> c8e59bb52ec3051c9e1cf24c4350ac9a77d21389
               updatedAt: serverTimestamp(),
             }
             await setDoc(docRef, initialData)
             setMountains(initialData.mountains)
             setCurrentMountainId(initialData.currentMountainId)
+            setTaskGenerationPrompt('')
           }
         } else {
           const local = loadState()
-<<<<<<< HEAD
           setMountains(local.mountains)
           setCurrentMountainId(local.currentMountainId)
-=======
-          setGoal(local.goal)
-          setTasks(local.tasks)
           setTaskGenerationPrompt(local.taskGenerationPrompt)
->>>>>>> c8e59bb52ec3051c9e1cf24c4350ac9a77d21389
         }
       } catch (error) {
         console.error('Failed to load user state', error)
@@ -233,15 +203,12 @@ export default function App() {
 
     if (firebaseReady && user) {
       const docRef = doc(db, 'users', user.uid, 'state', 'current')
-<<<<<<< HEAD
       const payload = {
         mountains,
         currentMountainId,
+        taskGenerationPrompt,
         updatedAt: serverTimestamp()
       }
-=======
-      const payload = { goal, tasks, taskGenerationPrompt, updatedAt: serverTimestamp() }
->>>>>>> c8e59bb52ec3051c9e1cf24c4350ac9a77d21389
       const timeout = setTimeout(() => {
         setDoc(docRef, payload, { merge: true }).catch((error) => {
           console.error('Failed to save user state', error)
@@ -251,18 +218,13 @@ export default function App() {
       return () => clearTimeout(timeout)
     }
 
-<<<<<<< HEAD
-    saveState(mountains, currentMountainId)
-  }, [mountains, currentMountainId, user, isHydrated, firebaseReady])
+    saveState(mountains, currentMountainId, taskGenerationPrompt)
+  }, [mountains, currentMountainId, taskGenerationPrompt, user, isHydrated, firebaseReady])
 
   // Derive Current Mountain Data
   const currentMountainIndex = mountains.findIndex(m => m.id === currentMountainId)
   const currentMountain = mountains[currentMountainIndex] || { goal: '', tasks: [] }
   const { goal, tasks } = currentMountain
-=======
-    saveState(goal, tasks, taskGenerationPrompt)
-  }, [goal, tasks, taskGenerationPrompt, user, isHydrated, firebaseReady])
->>>>>>> c8e59bb52ec3051c9e1cf24c4350ac9a77d21389
 
   const progress = getProgress(tasks)
   const altitude = getAltitude(tasks)
@@ -457,18 +419,12 @@ export default function App() {
     if (!auth) return
     await signOut(auth)
     localStorage.removeItem(STORAGE_KEY)
-<<<<<<< HEAD
     // Reset to fresh state
     const newMountain = { id: generateId(), goal: '', tasks: [], createdAt: Date.now() }
     setMountains([newMountain])
     setCurrentMountainId(newMountain.id)
-  }, [])
-=======
-    setGoal('')
-    setTasks([])
     setTaskGenerationPrompt('')
-  }, [auth])
->>>>>>> c8e59bb52ec3051c9e1cf24c4350ac9a77d21389
+  }, [])
 
   const handleTaskCountChange = useCallback((value) => {
     const parsed = Number.parseInt(value, 10)
@@ -489,12 +445,12 @@ export default function App() {
 
     const count = Math.min(MAX_TASK_COUNT, Math.max(MIN_TASK_COUNT, taskCount))
     const promptPreference = taskGenerationPrompt.trim()
-    
+
     // Construct guidance strings
     const promptGuidance = promptPreference
       ? `User preference for task style: ${promptPreference}\nGenerated tasks MUST follow this preference.`
       : ''
-    
+
     // Add specific instruction for "project" related prompts
     const projectInstruction = promptPreference.toLowerCase().includes('project')
       ? 'Include specific deliverables (e.g. "draft README", "build X component") if relevant.'
@@ -581,11 +537,7 @@ Output schema exactly:
     } finally {
       setIsGenerating(false)
     }
-<<<<<<< HEAD
-  }, [goal, taskCount, updateCurrentMountain])
-=======
-  }, [goal, taskCount, taskGenerationPrompt])
->>>>>>> c8e59bb52ec3051c9e1cf24c4350ac9a77d21389
+  }, [goal, taskCount, updateCurrentMountain, taskGenerationPrompt])
 
   return (
     <>
