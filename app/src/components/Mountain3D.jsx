@@ -166,6 +166,18 @@ function cubicBezierVec3(p0, p1, p2, p3, t) {
     )
 }
 
+function getMountainParams(seed) {
+    const seedInt = makeSeedInt(seed)
+    const phase = hashToUnitFloat(seedInt + 11) * Math.PI * 2
+    const freqA = 4 + Math.floor(hashToUnitFloat(seedInt + 17) * 5)
+    const freqB = 1.4 + hashToUnitFloat(seedInt + 23) * 2.6
+    const ampA = 0.10 + hashToUnitFloat(seedInt + 29) * 0.10
+    const ampB = 0.06 + hashToUnitFloat(seedInt + 31) * 0.08
+    const snowBias = (hashToUnitFloat(seedInt + 37) - 0.5) * 0.25
+
+    return { phase, freqA, freqB, ampA, ampB, snowBias }
+}
+
 function Landscape({ theme, seed }) {
     // World seed: keep landscape stable so camera travel reads as moving through space.
     const seedInt = useMemo(() => makeSeedInt('world-v1'), [])
@@ -294,13 +306,7 @@ function MountainMesh({ theme, seed }) {
         // High segment for smooth outlines/toon curves
         const geo = new THREE.ConeGeometry(3, 5, 128, 64);
 
-        const seedInt = makeSeedInt(seed)
-        const phase = hashToUnitFloat(seedInt + 11) * Math.PI * 2
-        const freqA = 4 + Math.floor(hashToUnitFloat(seedInt + 17) * 5)
-        const freqB = 1.4 + hashToUnitFloat(seedInt + 23) * 2.6
-        const ampA = 0.10 + hashToUnitFloat(seedInt + 29) * 0.10
-        const ampB = 0.06 + hashToUnitFloat(seedInt + 31) * 0.08
-        const snowBias = (hashToUnitFloat(seedInt + 37) - 0.5) * 0.25
+        const { phase, freqA, freqB, ampA, ampB, snowBias } = getMountainParams(seed)
 
         const posAttribute = geo.getAttribute('position');
         const vertex = new THREE.Vector3();
@@ -690,11 +696,12 @@ function Climber({ steps, targetIndex, controlsRef, isLocked, light, suspendCame
 }
 
 // Hook to generate the spiral staircase path
-function useStaircasePath(tasks) {
+function useStaircasePath(tasks, seed) {
     return useMemo(() => {
         const generatedSteps = [];
+        const { phase, freqA, freqB, ampA, ampB } = getMountainParams(seed)
 
-        const startY = -2.0;
+        const startY = -1.8;
         const endY = 2.5; // Stop before the very pointy tip
 
         const baseRadius = 3.0; // At Y=-2
@@ -732,7 +739,7 @@ function useStaircasePath(tasks) {
 
             // Wave function from MountainMesh
             // const angle = Math.atan2(vertex.z, vertex.x); -> This matches our 'angle'
-            const wave = Math.sin(angle * 5) * 0.15 + Math.cos(localY * 2.0) * 0.1;
+            const wave = Math.sin(angle * freqA + phase) * ampA + Math.cos(localY * freqB + phase * 0.6) * ampB;
 
             // Factor from MountainMesh
             // const factor = 1 + wave * (1.0 - (vertex.y + 2.5) / 5.0 * 0.5);
@@ -823,13 +830,13 @@ function useStaircasePath(tasks) {
         }
 
         return generatedSteps; // Array of step objects
-    }, [tasks.length]);
+    }, [tasks.length, seed]);
 }
 
 function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
     const controlsRef = useRef()
     const { camera } = useThree()
-    const steps = useStaircasePath(tasks);
+    const steps = useStaircasePath(tasks, mountainId || 'default');
     const theme = useMemo(() => TIME_THEMES[timeOfDay] || TIME_THEMES.night, [timeOfDay])
     const ambientRef = useRef()
     const directionalRef = useRef()
