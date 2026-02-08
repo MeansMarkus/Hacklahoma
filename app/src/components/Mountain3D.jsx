@@ -199,7 +199,9 @@ function Climber({ steps, targetIndex, controlsRef, isLocked }) {
     const rightWingRef = React.useRef();
 
     // Track current position as a float index along the steps array
-    const currentIndex = React.useRef(0);
+    // Initialize to targetIndex so we start at the right spot (teleport), 
+    // instead of walking from 0 every time.
+    const currentIndex = React.useRef(targetIndex);
 
     useFrame((state, delta) => {
         if (!steps || steps.length === 0) return;
@@ -463,7 +465,7 @@ function useStaircasePath(tasks) {
     }, [tasks.length]);
 }
 
-function Scene({ tasks, goal, isLocked }) {
+function Scene({ tasks, goal, isLocked, mountainId }) {
     const controlsRef = useRef()
     const steps = useStaircasePath(tasks);
 
@@ -561,7 +563,13 @@ function Scene({ tasks, goal, isLocked }) {
                 onFlagHover={setHoveredFlagIndex}
             />
 
-            <Climber steps={steps} targetIndex={targetStepIndex} controlsRef={controlsRef} isLocked={isLocked || isTouring} />
+            <Climber
+                key={mountainId} // Forces remount on mountain switch -> Teleport
+                steps={steps}
+                targetIndex={targetStepIndex}
+                controlsRef={controlsRef}
+                isLocked={isLocked || isTouring}
+            />
 
             <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
                 <Billboard
@@ -598,7 +606,7 @@ function Scene({ tasks, goal, isLocked }) {
     )
 }
 
-export default function Mountain3D({ goal, tasks, onPhotoUpdate }) {
+export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId }) {
     const [isLocked, setIsLocked] = useState(true);
 
     return (
@@ -630,7 +638,7 @@ export default function Mountain3D({ goal, tasks, onPhotoUpdate }) {
 
             <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 2, 8], fov: 50 }}>
                 <color attach="background" args={['#0f172a']} />
-                <Scene tasks={tasks} goal={goal} isLocked={isLocked} />
+                <Scene tasks={tasks} goal={goal} isLocked={isLocked} mountainId={mountainId} />
             </Canvas>
         </div>
     )
