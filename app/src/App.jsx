@@ -243,6 +243,14 @@ export default function App() {
   const currentMountain = mountains[currentMountainIndex] || { goal: '', tasks: [] }
   const { goal, tasks } = currentMountain
 
+  // If state ever gets out of sync (e.g., currentMountainId missing), recover to a valid mountain.
+  useEffect(() => {
+    if (!Array.isArray(mountains) || mountains.length === 0) return
+    if (!currentMountainId || !mountains.some(m => m.id === currentMountainId)) {
+      setCurrentMountainId(mountains[0].id)
+    }
+  }, [mountains, currentMountainId])
+
   const progress = getProgress(tasks)
   const altitude = getAltitude(tasks)
   const isSummitReached = tasks.length > 0 && progress === 100

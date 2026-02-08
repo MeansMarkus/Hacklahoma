@@ -144,17 +144,91 @@
 
 .sky-day {
   background:
-    radial-gradient(120px 80px at 20% 30%, rgba(255, 255, 255, 0.16), transparent 60%),
-    radial-gradient(160px 100px at 70% 25%, rgba(255, 255, 255, 0.12), transparent 65%),
-    linear-gradient(180deg, #cfe8ff 0%, #bfe6ff 45%, #e9f7ff 100%);
+    radial-gradient(260px 140px at 18% 26%, rgba(255, 244, 220, 0.35), transparent 62%),
+    radial-gradient(320px 180px at 74% 22%, rgba(255, 232, 190, 0.25), transparent 65%),
+    linear-gradient(180deg, #f6efe1 0%, #f6e6cb 42%, #f4ddba 72%, #f2d3a9 100%);
 }
 
 .sky-sunset {
-  background: linear-gradient(180deg, #f6c27a 0%, #ef8b6a 45%, #5f3c74 100%);
+  background:
+    radial-gradient(420px 220px at 50% 88%, rgba(255, 190, 110, 0.55), transparent 62%),
+    radial-gradient(520px 260px at 16% 78%, rgba(255, 150, 120, 0.28), transparent 68%),
+    linear-gradient(180deg, #ffcf86 0%, #ff9b6a 34%, #ef6f73 58%, #8a4f87 82%, #3b2a58 100%);
 }
 
 .sky-night {
-  background: linear-gradient(180deg, #0b1124 0%, #1b2040 45%, #2d2b5b 100%);
+  background:
+    radial-gradient(520px 260px at 55% 35%, rgba(140, 120, 255, 0.18), transparent 65%),
+    radial-gradient(420px 220px at 40% 60%, rgba(90, 130, 255, 0.10), transparent 70%),
+    linear-gradient(180deg, #0a0f22 0%, #11163a 45%, #241d4f 100%);
+}
+
+/* Clouds + stars (kept minimalist and soft) */
+.sky-clouds {
+  position: absolute;
+  inset: -10%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.4s ease;
+  filter: blur(0.5px);
+  background:
+    radial-gradient(140px 70px at 20% 30%, rgba(255, 255, 255, 0.28), transparent 60%),
+    radial-gradient(180px 90px at 42% 24%, rgba(255, 255, 255, 0.22), transparent 63%),
+    radial-gradient(160px 85px at 66% 28%, rgba(255, 255, 255, 0.18), transparent 62%),
+    radial-gradient(220px 110px at 78% 22%, rgba(255, 255, 255, 0.16), transparent 66%);
+  background-size: 820px 520px;
+  animation: skyCloudDrift 26s ease-in-out infinite;
+}
+
+.sky-stack[data-time='day'] .sky-clouds {
+  opacity: 0.55;
+}
+
+.sky-stack[data-time='sunset'] .sky-clouds {
+  opacity: 0.35;
+  filter: blur(0.9px);
+}
+
+.sky-stars {
+  position: absolute;
+  inset: -20%;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1.4s ease;
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.18), transparent),
+    radial-gradient(1px 1px at 60px 80px, rgba(255, 255, 255, 0.16), transparent),
+    radial-gradient(1px 1px at 90px 50px, rgba(255, 255, 255, 0.14), transparent),
+    radial-gradient(1px 1px at 130px 110px, rgba(255, 255, 255, 0.12), transparent);
+  background-size: 160px 160px;
+  animation: skyTwinkle 4.8s ease-in-out infinite;
+}
+
+.sky-stack[data-time='night'] .sky-stars {
+  opacity: 0.6;
+}
+
+@keyframes skyCloudDrift {
+  0% {
+    transform: translate3d(-1.5%, 0.4%, 0);
+  }
+  50% {
+    transform: translate3d(1.8%, -0.3%, 0);
+  }
+  100% {
+    transform: translate3d(-1.5%, 0.4%, 0);
+  }
+}
+
+@keyframes skyTwinkle {
+  0%, 100% {
+    opacity: 0.55;
+    transform: translate3d(0, 0, 0);
+  }
+  50% {
+    opacity: 0.82;
+    transform: translate3d(0.25%, -0.15%, 0);
+  }
 }
 
 .sky-noise {
@@ -184,11 +258,11 @@
 }
 
 .sky-stack[data-time='night'] .sky-vignette {
-  opacity: 0.4;
+  opacity: 0.42;
 }
 
 .sky-stack[data-time='night'] .sky-noise {
-  opacity: 0.12;
+  opacity: 0.06;
 }
 
 /* Login screen styling */

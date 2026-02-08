@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
+import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars, Float, Text, Outlines, Billboard, Html } from '@react-three/drei'
 import * as THREE from 'three'
 
@@ -7,17 +7,31 @@ import * as THREE from 'three'
 const TIME_THEMES = {
     day: {
         skyKey: 'day',
-        textColor: '#1e293b',
-        ambient: 0.9,
-        directional: 1.2,
-        directionalColor: '#fff4dc',
+        textColor: '#2b2a25',
+        ambient: 0.92,
+        directional: 1.25,
+        directionalColor: '#ffe2b2',
         directionalPosition: [8, 10, 6],
         stars: 0,
-        fog: { color: '#cfe8ff', near: 120, far: 220 },
+        starsSpeed: 0,
+        fog: { color: '#f3e8d6', near: 95, far: 260 },
+        ground: {
+            base: '#efe3cf',
+            edge: '#e2d3bd',
+            shadow: 'rgba(15, 23, 42, 0.18)',
+        },
+        distant: {
+            base: '#cbb99f',
+            snow: '#fbf6ec',
+        },
         mountain: {
-            base: '#7fb0d8',
-            shadow: '#5a86ad',
-            snow: '#f6f7fb',
+            base: '#c7b59e',
+            shadow: '#a6927c',
+            snow: '#fbf6ec',
+        },
+        atmosphere: {
+            haze1: 0.14,
+            haze2: 0.08,
         },
         steps: {
             base: '#9b6a3d',
@@ -31,16 +45,31 @@ const TIME_THEMES = {
     sunset: {
         skyKey: 'sunset',
         textColor: '#f8e7d3',
-        ambient: 0.55,
-        directional: 1.05,
-        directionalColor: '#f7b56e',
+        ambient: 0.6,
+        directional: 1.1,
+        directionalColor: '#ffb562',
         directionalPosition: [-6, 4, 6],
         stars: 700,
-        fog: { color: '#3a2b3f', near: 7, far: 22 },
+        starsSpeed: 0.6,
+        // Warm haze that catches golden light
+        fog: { color: '#f1a36b', near: 85, far: 240 },
+        ground: {
+            base: '#6a5860',
+            edge: '#7a646d',
+            shadow: 'rgba(10, 10, 20, 0.28)',
+        },
+        distant: {
+            base: '#6a5068',
+            snow: '#f7e6d4',
+        },
         mountain: {
-            base: '#6f7f97',
-            shadow: '#485368',
-            snow: '#f1e3d0',
+            base: '#7a6574',
+            shadow: '#5a4654',
+            snow: '#f7e6d4',
+        },
+        atmosphere: {
+            haze1: 0.22,
+            haze2: 0.12,
         },
         steps: {
             base: '#b06a39',
@@ -55,16 +84,30 @@ const TIME_THEMES = {
     night: {
         skyKey: 'night',
         textColor: '#dbe4f3',
-        ambient: 0.35,
-        directional: 0.8,
-        directionalColor: '#a5c4ff',
+        ambient: 0.48,
+        directional: 0.85,
+        directionalColor: '#b9c9ff',
         directionalPosition: [6, 8, -4],
         stars: 2200,
-        fog: { color: '#0b1124', near: 6, far: 20 },
+        starsSpeed: 0.45,
+        fog: { color: '#17133a', near: 75, far: 250 },
+        ground: {
+            base: '#1a1f3a',
+            edge: '#242a4c',
+            shadow: 'rgba(2, 6, 23, 0.45)',
+        },
+        distant: {
+            base: '#2a2b55',
+            snow: '#d9d9f3',
+        },
         mountain: {
-            base: '#2f3a52',
-            shadow: '#1a2235',
-            snow: '#cfd8e6',
+            base: '#323562',
+            shadow: '#1f2147',
+            snow: '#d9d9f3',
+        },
+        atmosphere: {
+            haze1: 0.18,
+            haze2: 0.1,
         },
         steps: {
             base: '#3c2f2a',
@@ -78,10 +121,186 @@ const TIME_THEMES = {
     },
 }
 
-function MountainMesh({ theme }) {
+function clamp01(v) {
+    return Math.max(0, Math.min(1, v))
+}
+
+function smoothstep(edge0, edge1, x) {
+    const t = clamp01((x - edge0) / (edge1 - edge0))
+    return t * t * (3 - 2 * t)
+}
+
+function makeSeedInt(seed) {
+    if (typeof seed === 'number' && Number.isFinite(seed)) return Math.floor(seed)
+    if (typeof seed === 'string') {
+        let h = 2166136261
+        for (let i = 0; i < seed.length; i++) {
+            h ^= seed.charCodeAt(i)
+            h = Math.imul(h, 16777619)
+        }
+        return h >>> 0
+    }
+    return 1337
+}
+
+function hashToUnitFloat(n) {
+    const x = Math.sin(n) * 43758.5453123
+    return x - Math.floor(x)
+}
+
+function cubicBezierVec3(p0, p1, p2, p3, t) {
+    const it = 1 - t
+    const it2 = it * it
+    const t2 = t * t
+
+    // (1-t)^3 p0 + 3(1-t)^2 t p1 + 3(1-t) t^2 p2 + t^3 p3
+    const a = it2 * it
+    const b = 3 * it2 * t
+    const c = 3 * it * t2
+    const d = t2 * t
+
+    return new THREE.Vector3(
+        p0.x * a + p1.x * b + p2.x * c + p3.x * d,
+        p0.y * a + p1.y * b + p2.y * c + p3.y * d,
+        p0.z * a + p1.z * b + p2.z * c + p3.z * d,
+    )
+}
+
+function Landscape({ theme, seed }) {
+    // World seed: keep landscape stable so camera travel reads as moving through space.
+    const seedInt = useMemo(() => makeSeedInt('world-v1'), [])
+
+    const groundGeometry = useMemo(() => {
+        // Subtle, polished elevation changes (minimalist render)
+        const geo = new THREE.PlaneGeometry(320, 320, 180, 180)
+        geo.rotateX(-Math.PI / 2)
+        const pos = geo.getAttribute('position')
+
+        const base = new THREE.Color(theme.ground?.base || '#c9d8e6')
+        const edge = new THREE.Color(theme.ground?.edge || '#b3c4d6')
+        const colors = []
+
+        for (let i = 0; i < pos.count; i++) {
+            const x = pos.getX(i)
+            const z = pos.getZ(i)
+            const r = Math.sqrt(x * x + z * z)
+
+            // Keep the gameplay area near the mountain flatter/cleaner.
+            // Keep the area near world origin slightly cleaner; mountains are placed in slots elsewhere.
+            const clear = smoothstep(6.0, 12.0, r)
+
+            const w1 = Math.sin(x * 0.08 + z * 0.03)
+            const w2 = Math.cos(z * 0.07 - x * 0.02)
+            const w3 = Math.sin((x + z) * 0.045)
+            const jitter = (hashToUnitFloat(seedInt + Math.floor(x * 2) * 31 + Math.floor(z * 2) * 17) - 0.5)
+
+            const y = (w1 * 0.18 + w2 * 0.14 + w3 * 0.10 + jitter * 0.06) * clear
+            pos.setY(i, y)
+
+            // Gentle color variation by height + distance (no texture detail)
+            const h = clamp01((y + 0.25) / 0.9)
+            const d = smoothstep(20, 150, r)
+            const c = base.clone().lerp(edge, 0.35 * d + 0.25 * h)
+            colors.push(c.r, c.g, c.b)
+        }
+
+        geo.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
+        geo.computeVertexNormals()
+        return geo
+    }, [seedInt, theme.ground?.base, theme.ground?.edge])
+
+    const peaks = useMemo(() => {
+        // World peaks distributed across the whole landscape for depth.
+        const rng = (k) => hashToUnitFloat(seedInt * 99991 + k * 7919)
+        const count = 26
+        const list = []
+        for (let i = 0; i < count; i++) {
+            const a = rng(i + 1) * Math.PI * 2
+            const r = 55 + rng(i + 50) * 120
+            const x = Math.cos(a) * r
+            const z = Math.sin(a) * r
+            const h = 2.6 + rng(i + 200) * 4.6
+            const rad = 1.7 + rng(i + 400) * 2.2
+            const yaw = rng(i + 800) * Math.PI * 2
+            list.push({ x, z, h, rad, yaw })
+        }
+        return list
+    }, [seedInt])
+
+    const baseColor = theme.distant?.base || theme.mountain.base
+    const snowColor = theme.distant?.snow || theme.mountain.snow
+
+    return (
+        <group position={[0, -2.02, 0]}>
+            <mesh geometry={groundGeometry} receiveShadow>
+                <meshStandardMaterial vertexColors roughness={0.92} metalness={0.0} />
+            </mesh>
+
+            {/* Distant peaks */}
+            <group>
+                {peaks.map((p, i) => (
+                    <group key={i} position={[p.x, 0.0, p.z]} rotation={[0, p.yaw, 0]}>
+                        <mesh position={[0, p.h * 0.5, 0]} castShadow receiveShadow>
+                            <coneGeometry args={[p.rad, p.h, 10, 1]} />
+                            <meshToonMaterial color={baseColor} />
+                        </mesh>
+                        <mesh position={[0, p.h * 0.86, 0]} castShadow receiveShadow>
+                            <coneGeometry args={[p.rad * 0.55, p.h * 0.42, 10, 1]} />
+                            <meshToonMaterial color={snowColor} />
+                        </mesh>
+                    </group>
+                ))}
+            </group>
+
+            {/* Atmospheric perspective / haze band (minimal, keeps mountains visible) */}
+            <group position={[0, 6.5, -58]}>
+                <mesh>
+                    <planeGeometry args={[260, 58]} />
+                    <meshBasicMaterial color={theme.fog.color} transparent opacity={theme.atmosphere?.haze1 ?? 0.18} depthWrite={false} />
+                </mesh>
+                <mesh position={[0, -7, -12]}>
+                    <planeGeometry args={[320, 84]} />
+                    <meshBasicMaterial color={theme.fog.color} transparent opacity={theme.atmosphere?.haze2 ?? 0.1} depthWrite={false} />
+                </mesh>
+            </group>
+        </group>
+    )
+}
+
+function BaseGrounding({ theme }) {
+    return (
+        <group position={[0, -2.02, 0]}>
+            {/* Base blending ring + contact shadow (clean separation, helps gameplay readability) */}
+            <mesh position={[0, 0.02, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+                <ringGeometry args={[15.5, 40, 96]} />
+                <meshStandardMaterial
+                    color={theme.ground?.edge || '#b3c4d6'}
+                    roughness={0.98}
+                    metalness={0}
+                    opacity={0.75}
+                    transparent
+                />
+            </mesh>
+            <mesh position={[0, 0.03, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+                <circleGeometry args={[3.7, 64]} />
+                <meshBasicMaterial color={theme.ground?.shadow || 'rgba(15, 23, 42, 0.18)'} transparent opacity={0.55} />
+            </mesh>
+        </group>
+    )
+}
+
+function MountainMesh({ theme, seed }) {
     const { geometry, material } = useMemo(() => {
         // High segment for smooth outlines/toon curves
         const geo = new THREE.ConeGeometry(3, 5, 128, 64);
+
+        const seedInt = makeSeedInt(seed)
+        const phase = hashToUnitFloat(seedInt + 11) * Math.PI * 2
+        const freqA = 4 + Math.floor(hashToUnitFloat(seedInt + 17) * 5)
+        const freqB = 1.4 + hashToUnitFloat(seedInt + 23) * 2.6
+        const ampA = 0.10 + hashToUnitFloat(seedInt + 29) * 0.10
+        const ampB = 0.06 + hashToUnitFloat(seedInt + 31) * 0.08
+        const snowBias = (hashToUnitFloat(seedInt + 37) - 0.5) * 0.25
 
         const posAttribute = geo.getAttribute('position');
         const vertex = new THREE.Vector3();
@@ -96,8 +315,8 @@ function MountainMesh({ theme }) {
 
             // Cartoon displacement: Soft, large waves. No jagged noise.
             const angle = Math.atan2(vertex.z, vertex.x);
-            // Simple curvy distortion
-            const wave = Math.sin(angle * 5) * 0.15 + Math.cos(vertex.y * 2.0) * 0.1;
+            // Seeded curvy distortion so each mountain is distinct.
+            const wave = Math.sin(angle * freqA + phase) * ampA + Math.cos(vertex.y * freqB + phase * 0.6) * ampB;
 
             const radius = Math.sqrt(vertex.x * vertex.x + vertex.z * vertex.z);
             if (radius > 0.1) {
@@ -111,7 +330,7 @@ function MountainMesh({ theme }) {
             posAttribute.setXYZ(i, vertex.x, vertex.y, vertex.z);
 
             // Cartoon Color Logic: Sharp Bands
-            const snowThreshold = 1.0 + Math.sin(angle * 3) * 0.2;
+            const snowThreshold = 1.0 + snowBias + Math.sin(angle * (3 + (freqA % 3))) * 0.18;
 
             let finalColor;
             if (vertex.y > snowThreshold) {
@@ -134,7 +353,7 @@ function MountainMesh({ theme }) {
         });
 
         return { geometry: geo, material: mat };
-    }, [theme.mountain.base, theme.mountain.shadow, theme.mountain.snow]);
+    }, [theme.mountain.base, theme.mountain.shadow, theme.mountain.snow, seed]);
 
     return (
         <group position={[0, -2, 0]}>
@@ -260,7 +479,7 @@ function CheckpointFlags({ steps, doneCount, tasks, activeFlagIndex, onFlagHover
 }
 
 // Animated Climber Component - Detailed Penguin
-function Climber({ steps, targetIndex, controlsRef, isLocked, light }) {
+function Climber({ steps, targetIndex, controlsRef, isLocked, light, suspendCamera, origin }) {
     const groupRef = React.useRef();
     const bodyRef = React.useRef();
     const leftWingRef = React.useRef();
@@ -318,10 +537,14 @@ function Climber({ steps, targetIndex, controlsRef, isLocked, light }) {
             groupRef.current.position.set(currentPos.x, currentPos.y + 0.05, currentPos.z);
             groupRef.current.rotation.set(0, currentRotY, 0);
 
-            // Camera Tracking ONLY if locked
-            if (isLocked && controlsRef && controlsRef.current) {
+            // Camera Tracking ONLY if locked (unless a scene transition is running)
+            if (!suspendCamera && isLocked && controlsRef && controlsRef.current) {
                 // Look slightly above the penguin's feet
-                const lookAtPos = new THREE.Vector3(currentPos.x, currentPos.y + 0.5, currentPos.z);
+                const lookAtPos = new THREE.Vector3(
+                    currentPos.x + (origin?.x || 0),
+                    currentPos.y + 0.5,
+                    currentPos.z + (origin?.z || 0)
+                );
                 controlsRef.current.target.lerp(lookAtPos, 0.1);
 
                 // Orbital Camera Movement
@@ -334,18 +557,18 @@ function Climber({ steps, targetIndex, controlsRef, isLocked, light }) {
 
                 // We want the camera to be "behind" and "outward" or just "outward"
                 // Let's place it at the same angle to look AT the mountain face the penguin is on
-                const camX = Math.sin(angle) * dist;
-                const camZ = Math.cos(angle) * dist;
+                const camX = (origin?.x || 0) + Math.sin(angle) * dist;
+                const camZ = (origin?.z || 0) + Math.cos(angle) * dist;
                 const camY = currentPos.y + heightOffset;
 
                 const desiredCamPos = new THREE.Vector3(camX, camY, camZ);
                 state.camera.position.lerp(desiredCamPos, 0.05);
 
                 controlsRef.current.update();
-            } else if (!isLocked && controlsRef && controlsRef.current) {
+            } else if (!suspendCamera && !isLocked && controlsRef && controlsRef.current) {
                 // In free mode, smoothy lerp the target to the mountain center (0, 1, 0)
                 // This ensures the camera rotates around the mountain, not where it was last left
-                const mountainCenter = new THREE.Vector3(0, 1, 0);
+                const mountainCenter = new THREE.Vector3(origin?.x || 0, 1, origin?.z || 0);
                 controlsRef.current.target.lerp(mountainCenter, 0.1);
                 controlsRef.current.update();
             }
@@ -544,6 +767,7 @@ function useStaircasePath(tasks) {
 
 function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
     const controlsRef = useRef()
+    const { camera } = useThree()
     const steps = useStaircasePath(tasks);
     const theme = useMemo(() => TIME_THEMES[timeOfDay] || TIME_THEMES.night, [timeOfDay])
     const ambientRef = useRef()
@@ -555,6 +779,102 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
         () => new THREE.Vector3(...theme.directionalPosition),
         [theme.directionalPosition]
     )
+
+    // Place each mountain in a deterministic "slot" on the landscape so switching reads as travel.
+    const mountainOrigin = useMemo(() => {
+        const seedInt = makeSeedInt(mountainId || 'default')
+        const slots = [
+            new THREE.Vector3(-86, 0, -62),
+            new THREE.Vector3(-28, 0, -92),
+            new THREE.Vector3(44, 0, -74),
+            new THREE.Vector3(92, 0, -18),
+            new THREE.Vector3(70, 0, 64),
+            new THREE.Vector3(10, 0, 94),
+            new THREE.Vector3(-66, 0, 74),
+            new THREE.Vector3(-98, 0, 18),
+            new THREE.Vector3(0, 0, -10),
+        ]
+        const idx = Math.floor(hashToUnitFloat(seedInt + 101) * slots.length)
+        const base = slots[idx]
+        const jitterX = (hashToUnitFloat(seedInt + 202) - 0.5) * 10
+        const jitterZ = (hashToUnitFloat(seedInt + 303) - 0.5) * 10
+        return new THREE.Vector3(base.x + jitterX, 0, base.z + jitterZ)
+    }, [mountainId])
+
+    // Seeded camera transition when switching mountains (makes it feel like a new scene)
+    const cameraTransitionRef = useRef({
+        active: false,
+        t: 0,
+        duration: 1.65,
+        fromPos: new THREE.Vector3(),
+        toPos: new THREE.Vector3(),
+        fromTarget: new THREE.Vector3(),
+        toTarget: new THREE.Vector3(),
+        c1: new THREE.Vector3(),
+        c2: new THREE.Vector3(),
+    })
+
+    const transitionCounterRef = useRef(0)
+
+    React.useEffect(() => {
+        if (!camera) return
+        if (!controlsRef.current) return
+
+        const seedInt = makeSeedInt(mountainId || 'default')
+        transitionCounterRef.current += 1
+        // Add a little non-determinism so repeating the same switch doesn't look identical.
+        // Still ends at the same final pose for the chosen mountain.
+        const nonce = (Date.now() & 0xffff) ^ (transitionCounterRef.current * 1103515245)
+        const v = (k) => hashToUnitFloat(seedInt + nonce + k * 7919)
+        const a = hashToUnitFloat(seedInt + 1234) * Math.PI * 2
+        const dist = 10.5 + hashToUnitFloat(seedInt + 2222) * 3.5
+        const height = 2.2 + hashToUnitFloat(seedInt + 3333) * 1.5
+        const center = new THREE.Vector3(mountainOrigin.x, 1, mountainOrigin.z)
+
+        // Capture current
+        cameraTransitionRef.current.fromPos.copy(camera.position)
+        cameraTransitionRef.current.fromTarget.copy(controlsRef.current.target)
+
+        // Target pose varies per mountain: orbit angle + subtle dolly
+        cameraTransitionRef.current.toPos.set(
+            mountainOrigin.x + Math.sin(a) * dist,
+            height,
+            mountainOrigin.z + Math.cos(a) * dist
+        )
+        cameraTransitionRef.current.toTarget.copy(center)
+
+        // Build a wide "travel across the landscape" path.
+        // We create a sideways sweep (perpendicular to the travel direction) plus a slight lift.
+        const tr = cameraTransitionRef.current
+        const up = new THREE.Vector3(0, 1, 0)
+        const dir = new THREE.Vector3().subVectors(tr.toPos, tr.fromPos)
+        const dirFlat = new THREE.Vector3(dir.x, 0, dir.z)
+        const dirFlatLen = dirFlat.length()
+        if (dirFlatLen > 1e-3) dirFlat.divideScalar(dirFlatLen)
+
+        const side = new THREE.Vector3().crossVectors(up, dirFlat).normalize()
+        const sweepSign = v(1) > 0.5 ? 1 : -1
+        const sweep = (6 + v(2) * 8) * sweepSign
+        const lift = 0.75 + v(3) * 1.05
+        const push = 3.5 + v(4) * 5.5
+        const settlePull = 1.2 + v(5) * 2.8
+
+        tr.duration = 1.35 + v(6) * 0.75
+
+        // Control points: start nudges sideways + up, then finish with a smaller sideways drift.
+        tr.c1.copy(tr.fromPos)
+            .addScaledVector(dirFlat, push)
+            .addScaledVector(side, sweep)
+            .addScaledVector(up, lift)
+
+        tr.c2.copy(tr.toPos)
+            .addScaledVector(dirFlat, -settlePull)
+            .addScaledVector(side, sweep * (0.25 + v(7) * 0.25))
+            .addScaledVector(up, lift * (0.25 + v(8) * 0.25))
+
+        cameraTransitionRef.current.t = 0
+        cameraTransitionRef.current.active = true
+    }, [camera, mountainId, mountainOrigin.x, mountainOrigin.z])
 
     // -- State
     const [hoveredFlagIndex, setHoveredFlagIndex] = useState(null);
@@ -646,7 +966,29 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
 
     const currentStep = steps[targetStepIndex] || steps[0];
 
-    useFrame(() => {
+    useFrame((_, delta) => {
+        if (cameraTransitionRef.current.active && controlsRef.current && camera) {
+            const tr = cameraTransitionRef.current
+            tr.t = Math.min(1, tr.t + delta / tr.duration)
+            // Ease in/out for a cinematic feel
+            const eased = tr.t * tr.t * (3 - 2 * tr.t)
+
+            // Camera travels along a Bezier curve (reads like crossing the landscape)
+            const p = cubicBezierVec3(tr.fromPos, tr.c1, tr.c2, tr.toPos, eased)
+            camera.position.copy(p)
+
+            // Keep the gaze stable: ease toward the mountain center, but with a tiny leading motion.
+            // This avoids jerky target changes while the camera is moving quickly.
+            const lead = 0.10
+            const leadTarget = new THREE.Vector3().lerpVectors(tr.fromTarget, tr.toTarget, Math.min(1, eased + lead))
+            controlsRef.current.target.lerp(leadTarget, 0.9)
+            controlsRef.current.update()
+
+            if (tr.t >= 1) {
+                tr.active = false
+            }
+        }
+
         if (ambientRef.current) {
             ambientRef.current.intensity = THREE.MathUtils.lerp(
                 ambientRef.current.intensity,
@@ -679,52 +1021,77 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
                 intensity={theme.directional}
                 color={theme.directionalColor}
                 castShadow
+                shadow-mapSize={[1024, 1024]}
+                shadow-bias={-0.00025}
+                shadow-camera-near={1}
+                shadow-camera-far={90}
+                shadow-camera-left={-28}
+                shadow-camera-right={28}
+                shadow-camera-top={28}
+                shadow-camera-bottom={-28}
             />
             <fog ref={fogRef} attach="fog" args={[theme.fog.color, theme.fog.near, theme.fog.far]} />
             {theme.stars > 0 ? (
-                <Stars radius={100} depth={50} count={theme.stars} factor={4} saturation={0} fade speed={1} />
+                <Stars
+                    radius={120}
+                    depth={60}
+                    count={theme.stars}
+                    factor={4}
+                    saturation={0}
+                    fade
+                    speed={theme.starsSpeed ?? 0.6}
+                />
             ) : null}
 
-            <MountainMesh theme={theme} />
+            <Landscape theme={theme} seed={mountainId || 'default'} />
 
-            <Staircase steps={steps} doneCount={doneCount} theme={theme} />
-            <CheckpointFlags
-                steps={steps}
-                doneCount={doneCount}
-                tasks={tasks}
-                activeFlagIndex={hoveredFlagIndex}
-                onFlagHover={setHoveredFlagIndex}
-            />
+            {/* Active mountain + gameplay elements live at a slot on the landscape */}
+            <group position={[mountainOrigin.x, 0, mountainOrigin.z]}>
+                <BaseGrounding theme={theme} />
 
-            <Climber
-                key={mountainId} // Forces remount on mountain switch -> Teleport
-                steps={steps}
-                targetIndex={targetStepIndex}
-                controlsRef={controlsRef}
-                isLocked={isLocked || isTouring}
-                light={theme.climberLight}
-            />
+                <MountainMesh theme={theme} seed={mountainId || 'default'} />
 
-            <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
-                <Billboard
-                    follow={true}
-                    lockX={false}
-                    lockY={false}
-                    lockZ={false} // Lock the rotation on the z axis (default=false)
-                >
-                    <Text
-                        position={[0, 4.5, 0]}
-                        fontSize={0.5}
-                        color={theme.textColor}
-                        anchorX="center"
-                        anchorY="middle"
-                        outlineWidth={0.02}
-                        outlineColor="#000000"
+                <Staircase steps={steps} doneCount={doneCount} theme={theme} />
+                <CheckpointFlags
+                    steps={steps}
+                    doneCount={doneCount}
+                    tasks={tasks}
+                    activeFlagIndex={hoveredFlagIndex}
+                    onFlagHover={setHoveredFlagIndex}
+                />
+
+                <Climber
+                    key={mountainId} // Forces remount on mountain switch -> Teleport
+                    steps={steps}
+                    targetIndex={targetStepIndex}
+                    controlsRef={controlsRef}
+                    isLocked={isLocked || isTouring}
+                    light={theme.climberLight}
+                    suspendCamera={cameraTransitionRef.current.active}
+                    origin={mountainOrigin}
+                />
+
+                <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
+                    <Billboard
+                        follow={true}
+                        lockX={false}
+                        lockY={false}
+                        lockZ={false} // Lock the rotation on the z axis (default=false)
                     >
-                        {goal || "Summit"}
-                    </Text>
-                </Billboard>
-            </Float>
+                        <Text
+                            position={[0, 4.5, 0]}
+                            fontSize={0.5}
+                            color={theme.textColor}
+                            anchorX="center"
+                            anchorY="middle"
+                            outlineWidth={0.02}
+                            outlineColor="#000000"
+                        >
+                            {goal || "Summit"}
+                        </Text>
+                    </Billboard>
+                </Float>
+            </group>
 
             {/* Orbit controls limited to keep mountain in view */}
             <OrbitControls
@@ -797,6 +1164,8 @@ export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId, tim
                 <div className="sky-layer sky-day" />
                 <div className="sky-layer sky-sunset" />
                 <div className="sky-layer sky-night" />
+                <div className="sky-clouds" />
+                <div className="sky-stars" />
                 <div className="sky-noise" />
                 <div className="sky-vignette" />
             </div>
