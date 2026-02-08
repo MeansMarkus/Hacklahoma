@@ -79,57 +79,21 @@ export default function UserAuthDropdown({
               </button>
             </div>
           ) : (
-            // Login / Signup Form
-            <form onSubmit={(e) => {
-                onSubmit(e)
-                // We keep it open on error, close on success? 
-                // Currently success logic is outside. 
-            }} className="flex flex-col gap-4">
-              <div className="text-sm font-semibold text-slate-200">
-                Log in / Sign up
-              </div>
-              
-              <div className="space-y-3">
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => onEmailChange(e.target.value)}
-                  placeholder="Email"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
-                />
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => onPasswordChange(e.target.value)}
-                  placeholder="Password"
-                  className="w-full rounded-lg border border-slate-700 bg-slate-950/50 px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:border-cyan-400 focus:outline-none"
-                />
-              </div>
-
-              {error && (
-                <div className="text-xs text-rose-300 bg-rose-500/10 p-2 rounded border border-rose-500/20">
-                  {error}
+             // Logged Out View - Just a prompt to open the main login modal
+             <div className="flex flex-col gap-3">
+                <div className="text-sm font-semibold text-slate-200 px-1">
+                   Expedition Access
                 </div>
-              )}
-
-              <div className="flex gap-2">
                 <button
-                  type="submit"
-                  disabled={busy}
-                  className="flex-1 rounded-lg bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-400 disabled:opacity-50"
+                   onClick={() => {
+                      onSubmit(); // Re-using onSubmit as "Require Login" signal
+                      setIsOpen(false);
+                   }}
+                   className="w-full rounded-lg bg-cyan-500 px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-cyan-400"
                 >
-                  Login
+                   Log In / Sign Up
                 </button>
-                <button
-                  type="button"
-                  onClick={onSignUp}
-                  disabled={busy}
-                  className="flex-1 rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-sm font-semibold text-slate-300 hover:bg-slate-700 disabled:opacity-50"
-                >
-                  Sign Up
-                </button>
-              </div>
-            </form>
+             </div>
           )}
         </div>
       )}

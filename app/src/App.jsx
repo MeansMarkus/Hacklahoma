@@ -14,6 +14,7 @@ import TaskList from './components/TaskList'
 import CompletedTaskList from './components/CompletedTaskList'
 import MotivationCard from './components/MotivationCard'
 import SummitCelebration from './components/SummitCelebration'
+import LoginScreen from './components/LoginScreen'
 import NavigationArrows from './components/NavigationArrows'
 import MountainListTab from './components/MountainListTab'
 import UserAuthDropdown from './components/UserAuthDropdown'
@@ -137,6 +138,9 @@ export default function App() {
   const [authError, setAuthError] = useState('')
   const [authBusy, setAuthBusy] = useState(false)
   const [isHydrated, setIsHydrated] = useState(false)
+  
+  // State for manually triggering login modal. Defaults to true to prompt first.
+  const [showLoginModal, setShowLoginModal] = useState(true)
 
   // Initialization & Auth
   useEffect(() => {
@@ -155,6 +159,7 @@ export default function App() {
 
       try {
         if (nextUser) {
+          setShowLoginModal(false) // Close modal on successful auth
           const docRef = doc(db, 'users', nextUser.uid, 'state', 'current')
           const snapshot = await getDoc(docRef)
 
@@ -202,6 +207,8 @@ export default function App() {
           setCurrentMountainId(local.currentMountainId)
           setTaskGenerationPrompt(local.taskGenerationPrompt)
           setTimeOfDay(local.timeOfDay)
+          // If no user found, ensure modal is open (so we prompt first)
+          setShowLoginModal(true)
         }
       } catch (error) {
         console.error('Failed to load user state', error)
@@ -569,6 +576,24 @@ Output schema exactly:
           timeOfDay={timeOfDay}
         />
 
+        {showLoginModal && !user && (
+           <LoginScreen
+              email={authEmail}
+              password={authPassword}
+              onEmailChange={setAuthEmail}
+              onPasswordChange={setAuthPassword}
+              onSubmit={(e) => {
+                 e.preventDefault()
+                 handleSignIn(e)
+                 // NOTE: We don't close modal here immediately, wait for auth state change or manual close
+              }}
+              onSignUp={handleSignUp}
+              onClose={() => setShowLoginModal(false)}
+              error={authError}
+              busy={authBusy}
+           />
+        )}
+
           <>
             {/* Header / Top Navigation */}
             <header className="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-start pointer-events-none">
@@ -619,20 +644,20 @@ Output schema exactly:
               </div>
 
               <div className="pointer-events-auto flex gap-4 items-center">
-                {firebaseReady && (
-                  <UserAuthDropdown
-                    user={user}
-                    email={authEmail}
-                    password={authPassword}
-                    onEmailChange={setAuthEmail}
-                    onPasswordChange={setAuthPassword}
-                    onSubmit={handleSignIn}
-                    onSignUp={handleSignUp}
-                    onSignOut={handleSignOut}
-                    error={authError}
-                    busy={authBusy}
-                  />
-                )}
+                <UserAuthDropdown
+                  user={user}
+                  // When logged out, 'onSubmit' acts as the trigger to open the modal
+                  onSubmit={() => setShowLoginModal(true)}
+                  onSignOut={handleSignOut}
+                  // These props aren't used by the dropdown form anymore, but passing just in case
+                  email={authEmail}
+                  password={authPassword}
+                  onEmailChange={() => {}}
+                  onPasswordChange={() => {}}
+                  onSignUp={() => setShowLoginModal(true)}
+                  error={authError}
+                  busy={authBusy}
+                />
                 <button
                   onClick={() => setShowTasks((prev) => !prev)}
                   className="bg-slate-800/90 text-white p-3 rounded-full hover:bg-slate-700 transition-colors shadow-lg border border-slate-600 backdrop-blur-sm group"

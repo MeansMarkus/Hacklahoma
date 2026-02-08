@@ -5,13 +5,27 @@ export default function LoginScreen({
   onPasswordChange,
   onSubmit,
   onSignUp,
+  onClose,
   error,
   busy,
 }) {
   return (
     <div className="absolute inset-0 z-50 flex items-center justify-center px-6 py-10">
-      <div className="login-backdrop absolute inset-0" aria-hidden="true" />
-      <div className="login-panel login-appear relative w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-700/60 bg-slate-950/80 shadow-[0_30px_80px_rgba(2,6,23,0.75)] backdrop-blur-xl">
+      <div 
+        className="login-backdrop absolute inset-0 cursor-pointer" 
+        aria-hidden="true" 
+        onClick={onClose} 
+      />
+      <div className="login-panel login-appear relative w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-700/60 bg-slate-950/80 shadow-[0_30px_80px_rgba(2,6,23,0.75)] backdrop-blur-xl pointer-events-auto">
+        <button 
+           onClick={onClose}
+           className="absolute top-4 right-4 z-50 p-2 text-slate-400 hover:text-white bg-slate-900/50 hover:bg-slate-900 rounded-full transition-colors"
+           type="button"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+          </svg>
+        </button>
         <div className="grid gap-0 md:grid-cols-[1.1fr,0.9fr]">
           <div className="relative p-8 md:p-10">
             <div className="absolute -left-24 top-12 h-56 w-56 rounded-full bg-cyan-500/20 blur-3xl" aria-hidden="true" />
