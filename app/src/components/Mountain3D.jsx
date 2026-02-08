@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react'
+import React, { useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { OrbitControls, Stars, Float, Text, Outlines, Billboard } from '@react-three/drei'
 import * as THREE from 'three'
@@ -158,7 +158,7 @@ function CheckpointFlags({ steps, doneCount }) {
 }
 
 // Animated Climber Component - Detailed Penguin
-function Climber({ steps, targetIndex }) {
+function Climber({ steps, targetIndex, controlsRef, isLocked }) {
     const groupRef = React.useRef();
     const bodyRef = React.useRef();
     const leftWingRef = React.useRef();
@@ -213,6 +213,35 @@ function Climber({ steps, targetIndex }) {
         if (groupRef.current) {
             groupRef.current.position.set(currentPos.x, currentPos.y + 0.05, currentPos.z);
             groupRef.current.rotation.set(0, currentRotY, 0);
+
+            // Camera Tracking ONLY if locked
+            if (isLocked && controlsRef && controlsRef.current) {
+                // Look slightly above the penguin's feet
+                const lookAtPos = new THREE.Vector3(currentPos.x, currentPos.y + 0.5, currentPos.z);
+                controlsRef.current.target.lerp(lookAtPos, 0.1);
+
+                // Orbital Camera Movement
+                // Calculate angle of penguin relative to center (0,0)
+                const angle = Math.atan2(currentPos.x, currentPos.z);
+
+                // Desired camera position: offset by radius + distance, at the same angle
+                const dist = 8; // Distance from center
+                const heightOffset = 2; // Height relative to penguin
+
+                // We want the camera to be "behind" and "outward" or just "outward"
+                // Let's place it at the same angle to look AT the mountain face the penguin is on
+                const camX = Math.sin(angle) * dist;
+                const camZ = Math.cos(angle) * dist;
+                const camY = currentPos.y + heightOffset;
+
+                const desiredCamPos = new THREE.Vector3(camX, camY, camZ);
+                state.camera.position.lerp(desiredCamPos, 0.05);
+
+                controlsRef.current.update();
+            } else if (!isLocked && controlsRef && controlsRef.current) {
+                // In free mode, we don't force camera position, but we might want to ensure controls are usable
+                // (OrbitControls handles itself)
+            }
         }
 
         // Waddle Animation
@@ -400,7 +429,8 @@ function useStaircasePath(tasks) {
     }, [tasks.length]);
 }
 
-function Scene({ tasks, goal }) {
+function Scene({ tasks, goal, isLocked }) {
+    const controlsRef = useRef()
     const steps = useStaircasePath(tasks);
 
     // Determine climber position
@@ -431,7 +461,7 @@ function Scene({ tasks, goal }) {
             <Staircase steps={steps} doneCount={doneCount} />
             <CheckpointFlags steps={steps} doneCount={doneCount} />
 
-            <Climber steps={steps} targetIndex={targetStepIndex} />
+            <Climber steps={steps} targetIndex={targetStepIndex} controlsRef={controlsRef} isLocked={isLocked} />
 
             <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
                 <Billboard
@@ -456,22 +486,51 @@ function Scene({ tasks, goal }) {
 
             {/* Orbit controls limited to keep mountain in view */}
             <OrbitControls
+                ref={controlsRef}
                 enablePan={false}
                 minDistance={5}
                 maxDistance={15}
                 maxPolarAngle={Math.PI / 2 - 0.1} // Prevent going below ground
-                autoRotate={false}
+                autoRotate={!isLocked} // Auto rotate in free mode for fun? Or just false. Let's keep false.
+                autoRotateSpeed={0.5}
             />
         </group>
     )
 }
 
 export default function Mountain3D({ goal, tasks, onPhotoUpdate }) {
+    const [isLocked, setIsLocked] = useState(true);
+
     return (
         <div className="absolute inset-0 z-0" style={{ width: '100%', height: '100%', background: '#0a0a15' }}>
+            {/* Camera Toggle Button */}
+            <button
+                onClick={() => setIsLocked(!isLocked)}
+                className="absolute bottom-6 left-6 z-10 px-4 py-2 bg-slate-800/80 text-white rounded-full 
+                           backdrop-blur-sm border border-slate-600 hover:bg-slate-700 transition-colors
+                           font-semibold text-sm shadow-lg flex items-center gap-2"
+            >
+                {isLocked ? (
+                    <>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-emerald-400">
+                            <path fillRule="evenodd" d="M10 1a4.5 4.5 0 00-4.5 4.5V9H5a2 2 0 00-2 2v6a2 2 0 002 2h10a2 2 0 002-2v-6a2 2 0 00-2-2h-.5V5.5A4.5 4.5 0 0010 1zm3 8V5.5a3 3 0 10-6 0V9h6z" clipRule="evenodd" />
+                        </svg>
+                        Tracking Climber
+                    </>
+                ) : (
+                    <>
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4 text-sky-400">
+                            <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+                            <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 8.201 2.372 9.336 6.404.336.884.062 1.834-.664 2.186A10.004 10.004 0 0110 17c-4.257 0-8.201-2.372-9.336-6.41zM3.5 10a6.5 6.5 0 1113 0 6.5 6.5 0 01-13 0z" clipRule="evenodd" />
+                        </svg>
+                        Free View
+                    </>
+                )}
+            </button>
+
             <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 2, 8], fov: 50 }}>
                 <color attach="background" args={['#0f172a']} />
-                <Scene tasks={tasks} goal={goal} />
+                <Scene tasks={tasks} goal={goal} isLocked={isLocked} />
             </Canvas>
         </div>
     )
