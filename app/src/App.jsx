@@ -18,6 +18,7 @@ import SummitCelebration from './components/SummitCelebration'
 import LoginScreen from './components/LoginScreen'
 import {
   STORAGE_KEY,
+  STORAGE_VERSION,
   MAX_ALTITUDE,
   OLLAMA_BASE_URL,
   OLLAMA_MODEL,
@@ -34,14 +35,20 @@ function loadState() {
       return {
         goal: parsed.goal || '',
         tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+        taskGenerationPrompt: parsed.taskGenerationPrompt || '',
       }
     }
   } catch (_) { }
-  return { goal: '', tasks: [] }
+  return { goal: '', tasks: [], taskGenerationPrompt: '' }
 }
 
-function saveState(goal, tasks) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ goal, tasks }))
+function saveState(goal, tasks, taskGenerationPrompt) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({
+    version: STORAGE_VERSION,
+    goal,
+    tasks,
+    taskGenerationPrompt
+  }))
 }
 
 function getProgress(tasks) {
@@ -98,6 +105,7 @@ function extractJsonFromText(text) {
 export default function App() {
   const [goal, setGoal] = useState('')
   const [tasks, setTasks] = useState([])
+  const [taskGenerationPrompt, setTaskGenerationPrompt] = useState('')
   const [showCelebration, setShowCelebration] = useState(false)
   const [celebrated, setCelebrated] = useState(false)
   const [taskCount, setTaskCount] = useState(DEFAULT_TASK_COUNT)
@@ -116,6 +124,7 @@ export default function App() {
       const local = loadState()
       setGoal(local.goal)
       setTasks(local.tasks)
+      setTaskGenerationPrompt(local.taskGenerationPrompt)
       setIsHydrated(true)
       return
     }
@@ -132,12 +141,15 @@ export default function App() {
             const data = snapshot.data() || {}
             setGoal(typeof data.goal === 'string' ? data.goal : '')
             setTasks(Array.isArray(data.tasks) ? data.tasks : [])
+            setTaskGenerationPrompt(typeof data.taskGenerationPrompt === 'string' ? data.taskGenerationPrompt : '')
           } else {
             setGoal('')
             setTasks([])
+            setTaskGenerationPrompt('')
             await setDoc(docRef, {
               goal: '',
               tasks: [],
+              taskGenerationPrompt: '',
               updatedAt: serverTimestamp(),
             })
           }
@@ -145,6 +157,7 @@ export default function App() {
           const local = loadState()
           setGoal(local.goal)
           setTasks(local.tasks)
+          setTaskGenerationPrompt(local.taskGenerationPrompt)
         }
       } catch (error) {
         console.error('Failed to load user state', error)
@@ -161,7 +174,7 @@ export default function App() {
 
     if (firebaseReady && user) {
       const docRef = doc(db, 'users', user.uid, 'state', 'current')
-      const payload = { goal, tasks, updatedAt: serverTimestamp() }
+      const payload = { goal, tasks, taskGenerationPrompt, updatedAt: serverTimestamp() }
       const timeout = setTimeout(() => {
         setDoc(docRef, payload, { merge: true }).catch((error) => {
           console.error('Failed to save user state', error)
@@ -171,8 +184,8 @@ export default function App() {
       return () => clearTimeout(timeout)
     }
 
-    saveState(goal, tasks)
-  }, [goal, tasks, user, isHydrated, firebaseReady])
+    saveState(goal, tasks, taskGenerationPrompt)
+  }, [goal, tasks, taskGenerationPrompt, user, isHydrated, firebaseReady])
 
   const progress = getProgress(tasks)
   const altitude = getAltitude(tasks)
@@ -289,6 +302,7 @@ export default function App() {
     localStorage.removeItem(STORAGE_KEY)
     setGoal('')
     setTasks([])
+    setTaskGenerationPrompt('')
   }, [auth])
 
   const handleTaskCountChange = useCallback((value) => {
@@ -309,6 +323,18 @@ export default function App() {
     setGenerateError('')
 
     const count = Math.min(MAX_TASK_COUNT, Math.max(MIN_TASK_COUNT, taskCount))
+    const promptPreference = taskGenerationPrompt.trim()
+    
+    // Construct guidance strings
+    const promptGuidance = promptPreference
+      ? `User preference for task style: ${promptPreference}\nGenerated tasks MUST follow this preference.`
+      : ''
+    
+    // Add specific instruction for "project" related prompts
+    const projectInstruction = promptPreference.toLowerCase().includes('project')
+      ? 'Include specific deliverables (e.g. "draft README", "build X component") if relevant.'
+      : ''
+
     try {
       const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
         method: 'POST',
@@ -325,9 +351,11 @@ export default function App() {
             {
               role: 'user',
               content: `Goal: ${trimmedGoal}
+${promptGuidance}
 Generate exactly ${count} tasks.
 Constraints:
 Tasks should be actionable, specific, and small (30-120 minutes).
+${projectInstruction}
 Start each task with a verb.
 No duplicates.
 Keep each task text under 70 characters.
@@ -387,7 +415,7 @@ Output schema exactly:
     } finally {
       setIsGenerating(false)
     }
-  }, [goal, taskCount])
+  }, [goal, taskCount, taskGenerationPrompt])
 
   return (
     <>
@@ -450,6 +478,7 @@ Output schema exactly:
                 onClick={() => setShowTasks((prev) => !prev)}
                 className="pointer-events-auto bg-slate-800/90 text-white p-3 rounded-full hover:bg-slate-700 transition-colors shadow-lg border border-slate-600 backdrop-blur-sm group"
                 title="Toggle Tasks"
+                id="toggle-tasks-btn"
               >
                 {/* Hamburger Icon */}
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 group-hover:scale-110 transition-transform">
@@ -488,6 +517,8 @@ Output schema exactly:
                     maxTaskCount={MAX_TASK_COUNT}
                     isGenerating={isGenerating}
                     generateError={generateError}
+                    taskGenerationPrompt={taskGenerationPrompt}
+                    onTaskGenerationPromptChange={setTaskGenerationPrompt}
                   />
 
                   {/* Middle: Ledges (Active Tasks) */}
