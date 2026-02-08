@@ -328,29 +328,43 @@ function Climber({ steps, targetIndex, controlsRef, isLocked, light }) {
                 const lookAtPos = new THREE.Vector3(currentPos.x, currentPos.y + 0.5, currentPos.z);
                 controlsRef.current.target.lerp(lookAtPos, 0.1);
 
-                // Orbital Camera Movement
-                // Calculate angle of penguin relative to center (0,0)
-                const angle = Math.atan2(currentPos.x, currentPos.z);
+                // Behind-the-Penguin Camera View
+                const cameraDist = 3.5; // Distance behind
+                const cameraHeight = 1.2; // Height offset
 
-                // Desired camera position: offset by radius + distance, at the same angle
-                const dist = 8; // Distance from center
-                const heightOffset = 2; // Height relative to penguin
+                // Calculate "behind" position based on penguin's rotation
+                // The penguin's forward vector is along Z+ in its local space
+                const forward = new THREE.Vector3(0, 0, 1).applyEuler(new THREE.Euler(0, currentRotY, 0));
 
-                // We want the camera to be "behind" and "outward" or just "outward"
-                // Let's place it at the same angle to look AT the mountain face the penguin is on
-                const camX = Math.sin(angle) * dist;
-                const camZ = Math.cos(angle) * dist;
-                const camY = currentPos.y + heightOffset;
+                // Position is currentPos - forward * dist + heightOffset
+                const desiredCamPos = currentPos.clone()
+                    .sub(forward.multiplyScalar(cameraDist))
+                    .add(new THREE.Vector3(0, cameraHeight, 0));
 
-                const desiredCamPos = new THREE.Vector3(camX, camY, camZ);
                 state.camera.position.lerp(desiredCamPos, 0.05);
-
                 controlsRef.current.update();
             } else if (!isLocked && controlsRef && controlsRef.current) {
                 // In free mode, smoothy lerp the target to the mountain center (0, 1, 0)
-                // This ensures the camera rotates around the mountain, not where it was last left
                 const mountainCenter = new THREE.Vector3(0, 1, 0);
-                controlsRef.current.target.lerp(mountainCenter, 0.1);
+
+                // Only lerp the target if it's far from the mountain center
+                if (controlsRef.current.target.distanceTo(mountainCenter) > 0.1) {
+                    controlsRef.current.target.lerp(mountainCenter, 0.1);
+                }
+
+                // If the camera is too close (leftover from locked view), push it back
+                const minFreeDistance = 8;
+                const camPos = state.camera.position;
+                const distToCenter = camPos.distanceTo(mountainCenter);
+
+                if (distToCenter < minFreeDistance) {
+                    const direction = camPos.clone().sub(mountainCenter).normalize();
+                    const desiredCamPos = mountainCenter.clone().add(direction.multiplyScalar(minFreeDistance));
+                    // Lerp position but only to ensure a minimum distance
+                    state.camera.position.lerp(desiredCamPos, 0.05);
+                }
+
+                // Call update once at the end
                 controlsRef.current.update();
             }
         }
@@ -512,7 +526,7 @@ function useStaircasePath(tasks) {
             // Wave function from MountainMesh
             // const angle = Math.atan2(vertex.z, vertex.x); -> This matches our 'angle'
             const wave = Math.sin(angle * 5) * 0.15 + Math.cos(localY * 2.0) * 0.1;
-            
+
             // Factor from MountainMesh
             // const factor = 1 + wave * (1.0 - (vertex.y + 2.5) / 5.0 * 0.5);
             const factor = 1 + wave * (1.0 - (localY + 2.5) / 5.0 * 0.5);
@@ -521,23 +535,23 @@ function useStaircasePath(tasks) {
 
             // Offset for step attachment
             // Embed steps: center is near surfaceRadius
-            const embedOffset = 0.15; 
-            
+            const embedOffset = 0.15;
+
             // Add deterministic jitter
             const seed = i * 1337;
             const jitterRadial = (Math.sin(seed) * 0.5 + 0.5) * 0.1; // 0 to 0.1 variation
-            
+
             const stepRadius = surfaceRadius + embedOffset + jitterRadial;
 
             const x = Math.cos(angle) * stepRadius;
             const z = Math.sin(angle) * stepRadius;
 
             const position = [x, y, z];
-            
+
             // Rotate to align with radial outward direction + slight random tilt
             const jitterRotX = (Math.cos(seed * 0.5) * 0.5 - 0.25) * 0.1; // Slight pitch
             const jitterRotZ = (Math.sin(seed * 2.5) * 0.5 - 0.25) * 0.1; // Slight roll
-            
+
             const rotation = [jitterRotX, -angle, jitterRotZ];
 
             // Size jitter
@@ -576,10 +590,10 @@ function useStaircasePath(tasks) {
                     // Checkpoints stick out slightly more
                     const embedOffset = 0.25;
                     const stepRadius = step.surfaceRadius + embedOffset;
-                    
+
                     step.position[0] = Math.cos(step.angle) * stepRadius;
                     step.position[2] = Math.sin(step.angle) * stepRadius;
-                    
+
                     // Larger platform
                     step.dims = [0.8, 0.12, 0.5];
                 }
@@ -593,10 +607,10 @@ function useStaircasePath(tasks) {
 
                 const embedOffset = 0.25;
                 const stepRadius = lastStep.surfaceRadius + embedOffset;
-                
+
                 lastStep.position[0] = Math.cos(lastStep.angle) * stepRadius;
                 lastStep.position[2] = Math.sin(lastStep.angle) * stepRadius;
-                
+
                 lastStep.dims = [0.8, 0.12, 0.5];
             }
         }
@@ -764,7 +778,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
                 steps={steps}
                 targetIndex={targetStepIndex}
                 controlsRef={controlsRef}
-                isLocked={isLocked || isTouring}
+                isLocked={isLocked} // Master control for camera lock
                 light={theme.climberLight}
             />
 
@@ -796,7 +810,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
                 minDistance={5}
                 maxDistance={15}
                 maxPolarAngle={Math.PI / 2 - 0.1} // Prevent going below ground
-                autoRotate={!isLocked} // Auto rotate in free mode for fun? Or just false. Let's keep false.
+                autoRotate={false} // Disable auto rotate to give user full control in free mode
                 autoRotateSpeed={0.5}
             />
 
