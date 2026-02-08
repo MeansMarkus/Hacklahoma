@@ -121,6 +121,76 @@
   transform: translateX(-50%) translateY(0);
 }
 
+/* Time of day sky layers */
+.sky-stack {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+}
+
+.sky-layer {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transition: opacity 1.6s ease;
+}
+
+.sky-stack[data-time='day'] .sky-day,
+.sky-stack[data-time='sunset'] .sky-sunset,
+.sky-stack[data-time='night'] .sky-night {
+  opacity: 1;
+}
+
+.sky-day {
+  background:
+    radial-gradient(120px 80px at 20% 30%, rgba(255, 255, 255, 0.16), transparent 60%),
+    radial-gradient(160px 100px at 70% 25%, rgba(255, 255, 255, 0.12), transparent 65%),
+    linear-gradient(180deg, #cfe8ff 0%, #bfe6ff 45%, #e9f7ff 100%);
+}
+
+.sky-sunset {
+  background: linear-gradient(180deg, #f6c27a 0%, #ef8b6a 45%, #5f3c74 100%);
+}
+
+.sky-night {
+  background: linear-gradient(180deg, #0b1124 0%, #1b2040 45%, #2d2b5b 100%);
+}
+
+.sky-noise {
+  position: absolute;
+  inset: -20%;
+  opacity: 0.08;
+  background-image:
+    radial-gradient(1px 1px at 20px 30px, rgba(255, 255, 255, 0.15), transparent),
+    radial-gradient(1px 1px at 60px 80px, rgba(255, 255, 255, 0.12), transparent),
+    radial-gradient(1px 1px at 90px 50px, rgba(255, 255, 255, 0.1), transparent);
+  background-size: 140px 140px;
+  pointer-events: none;
+  transition: opacity 1.2s ease;
+}
+
+.sky-vignette {
+  position: absolute;
+  inset: 0;
+  opacity: 0.1;
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0) 40%, rgba(2, 6, 23, 0.35) 100%);
+  transition: opacity 1.4s ease;
+  pointer-events: none;
+}
+
+.sky-stack[data-time='sunset'] .sky-vignette {
+  opacity: 0.28;
+}
+
+.sky-stack[data-time='night'] .sky-vignette {
+  opacity: 0.4;
+}
+
+.sky-stack[data-time='night'] .sky-noise {
+  opacity: 0.12;
+}
+
 /* Login screen styling */
 .login-backdrop {
   background:

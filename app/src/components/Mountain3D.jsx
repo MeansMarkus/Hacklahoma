@@ -4,13 +4,81 @@ import { OrbitControls, Stars, Float, Text, Outlines, Billboard, Html } from '@r
 import * as THREE from 'three'
 
 // -- Constants
-const MOUNTAIN_COLOR = '#60a5fa' // Lighter Cartoon Blue
-const MOUNTAIN_ACCENT = '#bfdbfe'
-const STEP_COLOR = '#8B4513' // SaddleBrown
-const STEP_ACTIVE_COLOR = '#facc15' // Cartoon Yellow
-const STEP_REACHED_COLOR = '#4ade80' // Cartoon Green
+const TIME_THEMES = {
+    day: {
+        skyKey: 'day',
+        textColor: '#1e293b',
+        ambient: 0.9,
+        directional: 1.2,
+        directionalColor: '#fff4dc',
+        directionalPosition: [8, 10, 6],
+        stars: 0,
+        fog: { color: '#cfe8ff', near: 120, far: 220 },
+        mountain: {
+            base: '#7fb0d8',
+            shadow: '#5a86ad',
+            snow: '#f6f7fb',
+        },
+        steps: {
+            base: '#9b6a3d',
+            traveled: '#7d5632',
+            active: '#f7d08a',
+            reached: '#6cd3a1',
+            emissiveActive: '#f0b24d',
+            emissiveReached: '#2fb980',
+        },
+    },
+    sunset: {
+        skyKey: 'sunset',
+        textColor: '#f8e7d3',
+        ambient: 0.55,
+        directional: 1.05,
+        directionalColor: '#f7b56e',
+        directionalPosition: [-6, 4, 6],
+        stars: 700,
+        fog: { color: '#3a2b3f', near: 7, far: 22 },
+        mountain: {
+            base: '#6f7f97',
+            shadow: '#485368',
+            snow: '#f1e3d0',
+        },
+        steps: {
+            base: '#b06a39',
+            traveled: '#8c4f2b',
+            active: '#f59e0b',
+            reached: '#f0c07a',
+            emissiveActive: '#f4a261',
+            emissiveReached: '#f2c589',
+        },
+        climberLight: { intensity: 0.35, color: '#fbd0a1' },
+    },
+    night: {
+        skyKey: 'night',
+        textColor: '#dbe4f3',
+        ambient: 0.35,
+        directional: 0.8,
+        directionalColor: '#a5c4ff',
+        directionalPosition: [6, 8, -4],
+        stars: 2200,
+        fog: { color: '#0b1124', near: 6, far: 20 },
+        mountain: {
+            base: '#2f3a52',
+            shadow: '#1a2235',
+            snow: '#cfd8e6',
+        },
+        steps: {
+            base: '#3c2f2a',
+            traveled: '#2a211d',
+            active: '#8ab6ff',
+            reached: '#4fd1a1',
+            emissiveActive: '#6ea8ff',
+            emissiveReached: '#43b58d',
+        },
+        climberLight: { intensity: 0.45, color: '#c7dbff' },
+    },
+}
 
-function MountainMesh() {
+function MountainMesh({ theme }) {
     const { geometry, material } = useMemo(() => {
         // High segment for smooth outlines/toon curves
         const geo = new THREE.ConeGeometry(3, 5, 128, 64);
@@ -19,9 +87,9 @@ function MountainMesh() {
         const vertex = new THREE.Vector3();
         const colors = [];
 
-        const colorBase = new THREE.Color(MOUNTAIN_COLOR);
-        const colorSnow = new THREE.Color('#ffffff'); // Pure white
-        const colorShadow = new THREE.Color('#2563eb'); // Dark Blue Shadow
+        const colorBase = new THREE.Color(theme.mountain.base);
+        const colorSnow = new THREE.Color(theme.mountain.snow);
+        const colorShadow = new THREE.Color(theme.mountain.shadow);
 
         for (let i = 0; i < posAttribute.count; i++) {
             vertex.fromBufferAttribute(posAttribute, i);
@@ -66,7 +134,7 @@ function MountainMesh() {
         });
 
         return { geometry: geo, material: mat };
-    }, []);
+    }, [theme.mountain.base, theme.mountain.shadow, theme.mountain.snow]);
 
     return (
         <group position={[0, -2, 0]}>
@@ -77,7 +145,7 @@ function MountainMesh() {
     )
 }
 
-function Staircase({ steps, doneCount }) {
+function Staircase({ steps, doneCount, theme }) {
     return (
         <group>
             {steps.map((step, index) => {
@@ -86,21 +154,21 @@ function Staircase({ steps, doneCount }) {
                 const isNext = step.checkpointIndex === doneCount;
 
                 // Determine color
-                let color = STEP_COLOR;
+                let color = theme.steps.base;
                 let emissive = '#000000';
 
                 if (isCheckpoint) {
                     if (isReached) {
-                        color = STEP_REACHED_COLOR;
-                        emissive = '#059669';
+                        color = theme.steps.reached;
+                        emissive = theme.steps.emissiveReached;
                     } else if (isNext) {
-                        color = STEP_ACTIVE_COLOR;
-                        emissive = '#d97706';
+                        color = theme.steps.active;
+                        emissive = theme.steps.emissiveActive;
                     }
                 } else {
                     // Normal steps are just path color
                     if (step.overallIndex < (steps.find(s => s.checkpointIndex === doneCount)?.overallIndex || -1)) {
-                        color = '#b45309'; // Traveled path (darker wood)
+                        color = theme.steps.traveled; // Traveled path (darker wood)
                     }
                 }
 
@@ -192,7 +260,7 @@ function CheckpointFlags({ steps, doneCount, tasks, activeFlagIndex, onFlagHover
 }
 
 // Animated Climber Component - Detailed Penguin
-function Climber({ steps, targetIndex, controlsRef, isLocked }) {
+function Climber({ steps, targetIndex, controlsRef, isLocked, light }) {
     const groupRef = React.useRef();
     const bodyRef = React.useRef();
     const leftWingRef = React.useRef();
@@ -308,6 +376,12 @@ function Climber({ steps, targetIndex, controlsRef, isLocked }) {
     return (
         <group ref={groupRef}>
             <group ref={bodyRef}>
+                <pointLight
+                    intensity={light?.intensity ?? 0.35}
+                    color={light?.color ?? '#ffffff'}
+                    distance={3}
+                    position={[0, 0.8, 0.4]}
+                />
                 <group rotation={[0, 0, 0]}> {/* Face forward relative to path */}
 
                     {/* -- DETAILED PENGUIN MESH -- */}
@@ -468,9 +542,19 @@ function useStaircasePath(tasks) {
     }, [tasks.length]);
 }
 
-function Scene({ tasks, goal, isLocked, mountainId }) {
+function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
     const controlsRef = useRef()
     const steps = useStaircasePath(tasks);
+    const theme = useMemo(() => TIME_THEMES[timeOfDay] || TIME_THEMES.night, [timeOfDay])
+    const ambientRef = useRef()
+    const directionalRef = useRef()
+    const fogRef = useRef()
+    const targetLightColor = useMemo(() => new THREE.Color(theme.directionalColor), [theme.directionalColor])
+    const targetFogColor = useMemo(() => new THREE.Color(theme.fog.color), [theme.fog.color])
+    const targetDirPos = useMemo(
+        () => new THREE.Vector3(...theme.directionalPosition),
+        [theme.directionalPosition]
+    )
 
     // -- State
     const [hoveredFlagIndex, setHoveredFlagIndex] = useState(null);
@@ -549,15 +633,48 @@ function Scene({ tasks, goal, isLocked, mountainId }) {
 
     const currentStep = steps[targetStepIndex] || steps[0];
 
+    useFrame(() => {
+        if (ambientRef.current) {
+            ambientRef.current.intensity = THREE.MathUtils.lerp(
+                ambientRef.current.intensity,
+                theme.ambient,
+                0.08
+            );
+        }
+        if (directionalRef.current) {
+            directionalRef.current.intensity = THREE.MathUtils.lerp(
+                directionalRef.current.intensity,
+                theme.directional,
+                0.08
+            );
+            directionalRef.current.color.lerp(targetLightColor, 0.08);
+            directionalRef.current.position.lerp(targetDirPos, 0.08);
+        }
+        if (fogRef.current) {
+            fogRef.current.near = THREE.MathUtils.lerp(fogRef.current.near, theme.fog.near, 0.08);
+            fogRef.current.far = THREE.MathUtils.lerp(fogRef.current.far, theme.fog.far, 0.08);
+            fogRef.current.color.lerp(targetFogColor, 0.08);
+        }
+    });
+
     return (
         <group>
-            <ambientLight intensity={0.7} />
-            <directionalLight position={[10, 10, 5]} intensity={1.5} castShadow />
-            <Stars radius={100} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+            <ambientLight ref={ambientRef} intensity={theme.ambient} />
+            <directionalLight
+                ref={directionalRef}
+                position={theme.directionalPosition}
+                intensity={theme.directional}
+                color={theme.directionalColor}
+                castShadow
+            />
+            <fog ref={fogRef} attach="fog" args={[theme.fog.color, theme.fog.near, theme.fog.far]} />
+            {theme.stars > 0 ? (
+                <Stars radius={100} depth={50} count={theme.stars} factor={4} saturation={0} fade speed={1} />
+            ) : null}
 
-            <MountainMesh />
+            <MountainMesh theme={theme} />
 
-            <Staircase steps={steps} doneCount={doneCount} />
+            <Staircase steps={steps} doneCount={doneCount} theme={theme} />
             <CheckpointFlags
                 steps={steps}
                 doneCount={doneCount}
@@ -572,6 +689,7 @@ function Scene({ tasks, goal, isLocked, mountainId }) {
                 targetIndex={targetStepIndex}
                 controlsRef={controlsRef}
                 isLocked={isLocked || isTouring}
+                light={theme.climberLight}
             />
 
             <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
@@ -584,7 +702,7 @@ function Scene({ tasks, goal, isLocked, mountainId }) {
                     <Text
                         position={[0, 4.5, 0]}
                         fontSize={0.5}
-                        color="#f1f5f9"
+                        color={theme.textColor}
                         anchorX="center"
                         anchorY="middle"
                         outlineWidth={0.02}
@@ -609,15 +727,23 @@ function Scene({ tasks, goal, isLocked, mountainId }) {
     )
 }
 
-export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId }) {
+export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId, timeOfDay = 'night' }) {
     const [isLocked, setIsLocked] = useState(true);
+    const theme = TIME_THEMES[timeOfDay] || TIME_THEMES.night
 
     return (
-        <div className="absolute inset-0 z-0" style={{ width: '100%', height: '100%', background: '#0a0a15' }}>
+        <div className="absolute inset-0 z-0" style={{ width: '100%', height: '100%' }}>
+            <div className="sky-stack" data-time={theme.skyKey}>
+                <div className="sky-layer sky-day" />
+                <div className="sky-layer sky-sunset" />
+                <div className="sky-layer sky-night" />
+                <div className="sky-noise" />
+                <div className="sky-vignette" />
+            </div>
             {/* Camera Toggle Button */}
             <button
                 onClick={() => setIsLocked(!isLocked)}
-                className="absolute bottom-6 left-6 z-10 px-4 py-2 bg-slate-800/80 text-white rounded-full 
+                className="absolute bottom-6 left-6 z-20 px-4 py-2 bg-slate-800/80 text-white rounded-full 
                            backdrop-blur-sm border border-slate-600 hover:bg-slate-700 transition-colors
                            font-semibold text-sm shadow-lg flex items-center gap-2"
             >
@@ -639,10 +765,16 @@ export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId }) {
                 )}
             </button>
 
-            <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 2, 8], fov: 50 }}>
-                <color attach="background" args={['#0f172a']} />
-                <Scene tasks={tasks} goal={goal} isLocked={isLocked} mountainId={mountainId} />
-            </Canvas>
+            <div className="relative z-10 h-full w-full">
+                <Canvas
+                    shadows
+                    dpr={[1, 2]}
+                    camera={{ position: [0, 2, 8], fov: 50 }}
+                    gl={{ alpha: true }}
+                >
+                    <Scene tasks={tasks} goal={goal} isLocked={isLocked} mountainId={mountainId} timeOfDay={timeOfDay} />
+                </Canvas>
+            </div>
         </div>
     )
 }
