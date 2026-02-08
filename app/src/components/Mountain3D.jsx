@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Stars, Float, Text, Outlines, Billboard } from '@react-three/drei'
+import { OrbitControls, Stars, Float, Text, Outlines, Billboard, Html } from '@react-three/drei'
 import * as THREE from 'three'
 
 // -- Constants
@@ -127,9 +127,12 @@ function Staircase({ steps, doneCount }) {
     )
 }
 
-function CheckpointFlags({ steps, doneCount }) {
+function CheckpointFlags({ steps, doneCount, tasks }) {
     // Filter out only checkpoints
     const checkpoints = steps.filter(s => s.isCheckpoint);
+
+    // State to track hovered flag
+    const [hoveredIndex, setHoveredIndex] = useState(null);
 
     return (
         <group>
@@ -137,18 +140,49 @@ function CheckpointFlags({ steps, doneCount }) {
                 const isReached = cp.checkpointIndex < doneCount;
                 if (!isReached) return null; // Only show flags for reached checkpoints
 
+                const task = tasks && tasks[cp.checkpointIndex]; // Get associated task
+
                 return (
-                    <group key={i} position={cp.position} rotation={cp.rotation}>
+                    <group
+                        key={i}
+                        position={cp.position}
+                        rotation={cp.rotation}
+                        onPointerOver={(e) => { e.stopPropagation(); setHoveredIndex(i); }}
+                        onPointerOut={(e) => { e.stopPropagation(); setHoveredIndex(null); }}
+                        onClick={(e) => { e.stopPropagation(); setHoveredIndex(hoveredIndex === i ? null : i); }} // Click to toggle pinned state (basic impl)
+                    >
                         {/* Move flag slightly inward so it stands on the step */}
-                        <group position={[-0.2, 0.25, 0]}>
+                        <group position={[0.35, 0.25, 0]}>
                             <mesh position={[0, 0, 0]}>
                                 <cylinderGeometry args={[0.02, 0.02, 0.5]} />
                                 <meshStandardMaterial color="#cbd5e1" />
                             </mesh>
                             <mesh position={[0.15, 0.15, 0]} rotation={[0, 0, 0]}>
                                 <boxGeometry args={[0.3, 0.2, 0.01]} />
-                                <meshStandardMaterial color="#34d399" />
+                                <meshStandardMaterial color={hoveredIndex === i ? "#fbbf24" : "#34d399"} /> {/* Highlight on hover */}
                             </mesh>
+
+                            {/* Hover Tooltip / Detail View */}
+                            {hoveredIndex === i && (
+                                <Html position={[0, 0.5, 0]} center style={{ pointerEvents: 'none' }}>
+                                    <div className="bg-slate-900/90 text-white p-3 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md w-48 pointer-events-none select-none flex flex-col items-center gap-2 transform -translate-y-full">
+                                        <div className="text-xs font-bold text-center text-emerald-400 uppercase tracking-widest mb-1">
+                                            Checkpoint #{cp.checkpointIndex + 1}
+                                        </div>
+                                        <div className="text-sm text-center leading-tight font-medium">
+                                            {task ? task.text : "Unknown Task"}
+                                        </div>
+                                        {task && task.photo && (
+                                            <div className="mt-2 w-full aspect-video bg-black rounded overflow-hidden border border-slate-600">
+                                                <img src={task.photo} alt="Task Proof" className="w-full h-full object-cover" />
+                                            </div>
+                                        )}
+                                        {task && !task.photo && (
+                                            <div className="text-xs text-slate-500 italic mt-1">No photo added</div>
+                                        )}
+                                    </div>
+                                </Html>
+                            )}
                         </group>
                     </group>
                 )
@@ -459,7 +493,7 @@ function Scene({ tasks, goal, isLocked }) {
             <MountainMesh />
 
             <Staircase steps={steps} doneCount={doneCount} />
-            <CheckpointFlags steps={steps} doneCount={doneCount} />
+            <CheckpointFlags steps={steps} doneCount={doneCount} tasks={tasks} />
 
             <Climber steps={steps} targetIndex={targetStepIndex} controlsRef={controlsRef} isLocked={isLocked} />
 
