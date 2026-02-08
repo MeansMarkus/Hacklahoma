@@ -37,7 +37,7 @@ export default function GoalCard({
     <div className="rounded-xl border border-slate-400/20 bg-sky-mid/90 backdrop-blur-md p-5">
       <h2 className="text-lg font-bold mb-1">Set your summit</h2>
       <p className="text-sm text-slate-400 mb-4">Name the goal you want to reach.</p>
-      
+
       {/* Goal Input */}
       <form onSubmit={handleSubmit} className="flex gap-2 mb-5">
         <input

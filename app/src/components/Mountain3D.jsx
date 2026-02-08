@@ -2,6 +2,7 @@ import React, { useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { OrbitControls, Stars, Float, Text, Outlines, Billboard, Html, RoundedBox } from '@react-three/drei'
 import * as THREE from 'three'
+import PhotoModal from './PhotoModal'
 
 // -- Constants
 // -- Constants
@@ -545,12 +546,9 @@ function Staircase({ steps, doneCount, theme }) {
     )
 }
 
-function CheckpointFlags({ steps, doneCount, tasks, activeFlagIndex, onFlagHover }) {
+function CheckpointFlags({ steps, doneCount, tasks, activeFlagIndex, onFlagHover, onPhotoUpdate, onEditPhoto }) {
     // Filter out only checkpoints
     const checkpoints = steps.filter(s => s.isCheckpoint);
-
-    // We use the parent's activeFlagIndex (for tour) or internal logic?
-    // Let's use the one passed from parent which combines hover and tour.
 
     return (
         <group>
@@ -571,7 +569,12 @@ function CheckpointFlags({ steps, doneCount, tasks, activeFlagIndex, onFlagHover
                         rotation={cp.rotation}
                         onPointerOver={(e) => { e.stopPropagation(); onFlagHover(i); }}
                         onPointerOut={(e) => { e.stopPropagation(); onFlagHover(null); }}
-                        onClick={(e) => { e.stopPropagation(); /* Optional click logic */ }}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            if (task) {
+                                onEditPhoto(task.id, task.photo);
+                            }
+                        }}
                     >
                         {/* Move flag slightly inward so it stands on the step */}
                         <group position={[0.35, 0.25, 0]}>
@@ -581,27 +584,31 @@ function CheckpointFlags({ steps, doneCount, tasks, activeFlagIndex, onFlagHover
                             </mesh>
                             <mesh position={[0.15, 0.15, 0]} rotation={[0, 0, 0]}>
                                 <boxGeometry args={[0.3, 0.2, 0.01]} />
-                                <meshStandardMaterial color={activeFlagIndex === i ? "#fbbf24" : "#34d399"} /> {/* Highlight on hover */}
+                                <meshStandardMaterial color={activeFlagIndex === i ? "#fbbf24" : "#34d399"} />
                             </mesh>
 
                             {/* Hover Tooltip / Detail View */}
                             {activeFlagIndex === i && (
                                 <Html position={[0, 0.5, 0]} center style={{ pointerEvents: 'none' }}>
-                                    <div className="bg-slate-900/90 text-white p-3 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md w-64 pointer-events-none select-none flex flex-col items-center gap-2 transform -translate-y-full">
+                                    <div className="bg-slate-900/90 text-white p-3 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md w-64 flex flex-col items-center gap-2 transform -translate-y-full">
                                         <div className="text-xs font-bold text-center text-emerald-400 uppercase tracking-widest mb-1">
                                             Checkpoint #{cp.checkpointIndex + 1}
                                         </div>
                                         <div className="text-sm text-center leading-tight font-medium">
                                             {task ? task.text : "Unknown Task"}
                                         </div>
-                                        {task && task.photo && (
-                                            <div className="mt-2 w-full flex justify-center rounded overflow-hidden">
-                                                <img src={task.photo} alt="Task Proof" className="max-w-full max-h-40 object-contain rounded" />
-                                            </div>
-                                        )}
-                                        {task && !task.photo && (
-                                            <div className="text-xs text-slate-500 italic mt-1">No photo added</div>
-                                        )}
+                                        {(() => {
+                                            console.log('[CheckpointFlags] Rendering tooltip for task:', task?.id, 'has photo:', !!task?.photo, 'photo length:', task?.photo?.length)
+                                            return task && task.photo ? (
+                                                <div className="mt-2 w-full flex justify-center rounded overflow-hidden">
+                                                    <img src={task.photo} alt="Task Proof" className="max-w-full max-h-40 object-contain rounded" />
+                                                </div>
+                                            ) : (
+                                                <div className="mt-2 text-xs text-slate-400 italic">
+                                                    Click flag to add photo
+                                                </div>
+                                            )
+                                        })()}
                                     </div>
                                 </Html>
                             )}
@@ -986,7 +993,7 @@ function useStaircasePath(tasks, seed) {
     }, [tasks.length, seed]);
 }
 
-function Scene({ tasks, goal, isLocked, mountainId, timeOfDay, isTouring, tourIndex, isAutomatedTour, onTourIndexUpdate, onAutomatedTourEnd }) {
+function Scene({ tasks, goal, isLocked, mountainId, timeOfDay, isTouring, tourIndex, isAutomatedTour, onTourIndexUpdate, onAutomatedTourEnd, onPhotoUpdate, onEditPhoto }) {
     const controlsRef = useRef()
     const { camera } = useThree()
     const steps = useStaircasePath(tasks, mountainId || 'default');
@@ -1257,6 +1264,8 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay, isTouring, tourIn
                     tasks={tasks}
                     activeFlagIndex={hoveredFlagIndex}
                     onFlagHover={setHoveredFlagIndex}
+                    onPhotoUpdate={onPhotoUpdate}
+                    onEditPhoto={onEditPhoto}
                 />
 
                 <Climber
@@ -1314,6 +1323,83 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay, isTouring, tourIn
 export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId, timeOfDay = 'night' }) {
     const [isLocked, setIsLocked] = useState(true);
     const theme = TIME_THEMES[timeOfDay] || TIME_THEMES.night
+
+    // Photo editing state (lifted outside Canvas)
+    const [editingTaskId, setEditingTaskId] = useState(null);
+    const [editingTaskPhoto, setEditingTaskPhoto] = useState(null);
+
+    // Helper to resize image
+    const resizeImage = (file) => {
+        return new Promise((resolve) => {
+            const reader = new FileReader()
+            reader.onload = (event) => {
+                const img = new Image()
+                img.onload = () => {
+                    const canvas = document.createElement('canvas')
+                    let width = img.width
+                    let height = img.height
+                    const MAX_SIZE = 1024
+
+                    if (width > height) {
+                        if (width > MAX_SIZE) {
+                            height *= MAX_SIZE / width
+                            width = MAX_SIZE
+                        }
+                    } else {
+                        if (height > MAX_SIZE) {
+                            width *= MAX_SIZE / height
+                            height = MAX_SIZE
+                        }
+                    }
+
+                    canvas.width = width
+                    canvas.height = height
+                    const ctx = canvas.getContext('2d')
+                    ctx.drawImage(img, 0, 0, width, height)
+                    resolve(canvas.toDataURL('image/jpeg', 0.8))
+                }
+                img.src = event.target.result
+            }
+            reader.readAsDataURL(file)
+        })
+    }
+
+    const handlePhotoReplace = async (e) => {
+        const file = e.target.files?.[0]
+        if (!file || !editingTaskId) return
+
+        console.log('[Mountain3D] Starting photo upload for task:', editingTaskId)
+
+        try {
+            const resizedBase64 = await resizeImage(file)
+            console.log('[Mountain3D] Image resized, calling onPhotoUpdate')
+
+            onPhotoUpdate(editingTaskId, resizedBase64)
+            setEditingTaskPhoto(resizedBase64)
+
+            console.log('[Mountain3D] Photo updated, modal will stay open')
+        } catch (err) {
+            console.error("Image resize failed", err)
+        }
+    }
+
+    const handleEditPhoto = (taskId, photo) => {
+        console.log('[Mountain3D] handleEditPhoto called - taskId:', taskId, 'has existing photo:', !!photo)
+        setEditingTaskId(taskId);
+        setEditingTaskPhoto(photo);
+    }
+
+    const handleClosePhotoModal = () => {
+        setEditingTaskId(null);
+        setEditingTaskPhoto(null);
+    }
+
+    const handleRemovePhoto = () => {
+        if (editingTaskId) {
+            onPhotoUpdate(editingTaskId, null);
+            handleClosePhotoModal();
+        }
+    }
 
     // -- Victory Tour Logic (Lifted State)
     const [isTouring, setIsTouring] = useState(false);
@@ -1505,9 +1591,21 @@ export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId, tim
                         isAutomatedTour={isAutomatedTour}
                         onTourIndexUpdate={setTourIndex}
                         onAutomatedTourEnd={() => setIsAutomatedTour(false)}
+                        onPhotoUpdate={onPhotoUpdate}
+                        onEditPhoto={handleEditPhoto}
                     />
                 </Canvas>
             </div>
+
+            {/* Photo Modal - Rendered Outside Canvas */}
+            {editingTaskId && (
+                <PhotoModal
+                    photo={editingTaskPhoto}
+                    onClose={handleClosePhotoModal}
+                    onRemove={handleRemovePhoto}
+                    onReplace={handlePhotoReplace}
+                />
+            )}
         </div>
     )
 }

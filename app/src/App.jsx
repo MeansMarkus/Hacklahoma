@@ -275,7 +275,9 @@ export default function App() {
   const updateCurrentMountain = useCallback((updater) => {
     setMountains(prev => prev.map(m => {
       if (m.id === currentMountainId) {
-        return updater(m)
+        const updated = updater(m)
+        console.log('[App] updateCurrentMountain - Updated mountain:', updated.id, 'tasks with photos:', updated.tasks.filter(t => t.photo).length)
+        return updated
       }
       return m
     }))
@@ -336,8 +338,15 @@ export default function App() {
   }, [firebaseReady, user, tasks, updateCurrentMountain])
 
   const handlePhotoUpdate = useCallback(async (taskId, photoData) => {
+    console.log('[App] handlePhotoUpdate called for task:', taskId, 'photoData length:', photoData?.length)
+
+    // TEMPORARY: Force local storage due to Firebase CORS issues
+    // TODO: Fix Firebase Storage CORS configuration
+    const useLocalStorage = true
+
     // If local or no storage, just update state
-    if (!firebaseReady || !user || !storage) {
+    if (!firebaseReady || !user || !storage || useLocalStorage) {
+      console.log('[App] Using local storage, updating state directly')
       updateCurrentMountain(m => ({
         ...m,
         tasks: m.tasks.map(t => t.id === taskId ? { ...t, photo: photoData } : t)
@@ -348,6 +357,7 @@ export default function App() {
     const photoRef = ref(storage, `users/${user.uid}/tasks/${taskId}`)
 
     if (!photoData) {
+      console.log('[App] Removing photo from Firebase')
       deleteObject(photoRef).catch(() => { })
       updateCurrentMountain(m => ({
         ...m,
@@ -357,14 +367,21 @@ export default function App() {
     }
 
     try {
+      console.log('[App] Uploading photo to Firebase')
       await uploadString(photoRef, photoData, 'data_url')
       const url = await getDownloadURL(photoRef)
+      console.log('[App] Photo uploaded successfully, URL:', url)
       updateCurrentMountain(m => ({
         ...m,
         tasks: m.tasks.map(t => t.id === taskId ? { ...t, photo: url } : t)
       }))
     } catch (error) {
-      console.error('Failed to upload photo', error)
+      console.error('[App] Firebase upload failed, falling back to local storage:', error)
+      // Fallback to local storage if Firebase fails (e.g., CORS issues)
+      updateCurrentMountain(m => ({
+        ...m,
+        tasks: m.tasks.map(t => t.id === taskId ? { ...t, photo: photoData } : t)
+      }))
     }
   }, [firebaseReady, user, updateCurrentMountain])
 
