@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 // import Sky from './components/Sky' // Removed
-import Mountain from './components/Mountain'
+import Mountain3D from './components/Mountain3D'
 import GoalCard from './components/GoalCard'
 import TaskList from './components/TaskList'
 import CompletedTaskList from './components/CompletedTaskList'
@@ -232,8 +232,8 @@ Output schema exactly:
   return (
     <>
       <div className={`relative min-h-screen overflow-hidden ${isSummitReached ? 'summit-reached' : ''}`}>
-        {/* Fullscreen Mountain Background */}
-        <Mountain goal={goal} tasks={tasks} onPhotoUpdate={handlePhotoUpdate} />
+        {/* Fullscreen 3D Mountain Background */}
+        <Mountain3D goal={goal} tasks={tasks} onPhotoUpdate={handlePhotoUpdate} />
 
         {/* Header / Top Navigation */}
         <header className="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-start pointer-events-none">
