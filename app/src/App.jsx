@@ -618,17 +618,16 @@ Output schema exactly:
                   </div>
                 </div>
 
-<<<<<<< HEAD
                 <MountainListTab
                   mountains={mountains}
                   currentId={currentMountainId}
                   onSelect={handleSelectMountain}
                   onDelete={handleDeleteMountain}
                 />
-=======
-                <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl inline-flex flex-col gap-2">
+
+                <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl flex w-full flex-col gap-2 pointer-events-auto">
                   <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Time of day</div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 justify-between">
                     {[
                       { id: 'day', label: 'Day', icon: '☀️' },
                       { id: 'sunset', label: 'Sunset', icon: '🌅' },
@@ -638,7 +637,7 @@ Output schema exactly:
                         key={option.id}
                         type="button"
                         onClick={() => setTimeOfDay(option.id)}
-                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition border ${timeOfDay === option.id
+                        className={`flex-1 px-2 py-1.5 rounded-full text-xs font-semibold transition border flex items-center justify-center ${timeOfDay === option.id
                           ? 'bg-slate-200/90 text-slate-900 border-slate-100'
                           : 'bg-slate-800/70 text-slate-200 border-slate-700/70 hover:border-slate-500'
                           }`}
@@ -649,7 +648,6 @@ Output schema exactly:
                     ))}
                   </div>
                 </div>
->>>>>>> 893394795b421caf4b63e9c5928112f5d1c1f21c
               </div>
 
               <button
