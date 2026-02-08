@@ -369,25 +369,36 @@ function Climber({ steps, targetIndex, controlsRef, isLocked, light }) {
             }
         }
 
-        // Waddle Animation
+        // Hopping & Waddle Animation
         if (Math.abs(diff) > 0.05) {
-            // Walking
-            const time = state.clock.elapsedTime * 15;
-            const waddle = Math.sin(time) * 0.1;
-            const bounce = Math.abs(Math.cos(time)) * 0.05;
+            // Walking/Hopping
+            const time = state.clock.elapsedTime * 10;
+            const hop = Math.abs(Math.sin(time)) * 0.15;
+            const squash = 1.0 - Math.max(0, Math.cos(time)) * 0.1; // Squash on landing
+            const stretch = 1.0 + Math.max(0, Math.sin(time)) * 0.1; // Stretch in air
+            const lean = Math.sin(time * 0.5) * 0.1; // Slow side-to-side waddle lean
 
             if (bodyRef.current) {
-                bodyRef.current.rotation.z = waddle;
-                bodyRef.current.position.y = bounce;
+                bodyRef.current.position.y = hop;
+                bodyRef.current.scale.set(1 / stretch, stretch * squash, 1 / stretch);
+                bodyRef.current.rotation.z = lean;
             }
+
+            // Wing flapping synced with hop
+            const flap = Math.sin(time) * 0.4;
+            if (leftWingRef.current) leftWingRef.current.rotation.z = flap;
+            if (rightWingRef.current) rightWingRef.current.rotation.z = -flap;
         } else {
             // Idle breathing
             const time = state.clock.elapsedTime * 2;
             const breathe = Math.sin(time) * 0.01;
             if (bodyRef.current) {
-                bodyRef.current.rotation.z = THREE.MathUtils.lerp(bodyRef.current.rotation.z, 0, 0.1);
                 bodyRef.current.position.y = THREE.MathUtils.lerp(bodyRef.current.position.y, breathe, 0.1);
+                bodyRef.current.scale.lerp(new THREE.Vector3(1, 1, 1), 0.1);
+                bodyRef.current.rotation.z = THREE.MathUtils.lerp(bodyRef.current.rotation.z, 0, 0.1);
             }
+            if (leftWingRef.current) leftWingRef.current.rotation.z = THREE.MathUtils.lerp(leftWingRef.current.rotation.z, 0, 0.1);
+            if (rightWingRef.current) rightWingRef.current.rotation.z = THREE.MathUtils.lerp(rightWingRef.current.rotation.z, 0, 0.1);
         }
     });
 
