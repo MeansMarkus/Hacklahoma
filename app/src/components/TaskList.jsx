@@ -15,14 +15,14 @@ export default function TaskList({ tasks, onToggle, onRemove, onAdd, onPhotoUpda
 
   return (
     <div className="rounded-xl border border-slate-400/20 bg-sky-mid/90 backdrop-blur-md p-5">
-      <h2 className="text-lg font-bold mb-1">Your ledges</h2>
-      <p className="text-sm text-slate-400 mb-4">Each task is a ledge. Complete them to climb higher.</p>
+      <h2 className="text-lg font-bold mb-1">Your steps</h2>
+      <p className="text-sm text-slate-400 mb-4">Keep each step small and concrete.</p>
       <form onSubmit={handleAdd} className="flex gap-2 mb-4">
         <input
           type="text"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="Add a task (ledge)"
+          placeholder="Add a step"
           maxLength={50}
           className="flex-1 px-4 py-2.5 rounded-lg border border-slate-400/20 bg-sky-deep/60 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20 transition-all"
         />
