@@ -6,14 +6,24 @@ export default function MountainListTab({ mountains, currentId, onSelect, onDele
     return (
         <>
             {/* Toggle Button */}
+            {/* Title Card (Toggle for Drawer) */}
+            {/* Title Card (Toggle for Drawer) */}
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className={`fixed left-4 top-24 z-40 p-3 bg-slate-800/90 text-white rounded-r-xl hover:bg-slate-700 transition-all shadow-lg border border-slate-600 backdrop-blur-sm ${isOpen ? '-translate-x-full opacity-0' : 'translate-x-0 opacity-100'
+                className={`w-full px-4 py-3 bg-slate-900/80 text-white rounded-2xl hover:bg-slate-800/90 transition-all shadow-xl border border-slate-700/50 backdrop-blur-md flex items-center justify-between group ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
                     }`}
-                title="View Mountains"
+                title="Switch Mountain"
             >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                <div className="flex flex-col items-start">
+                    <span className="text-xs text-slate-400 font-bold tracking-wider uppercase">Current Expedition</span>
+                    <span className="text-sm font-semibold text-cyan-400 max-w-[150px] truncate">
+                        {mountains.find(m => m.id === currentId)?.goal || 'Untitled Mountain'}
+                    </span>
+                </div>
+
+                {/* Chevron/Icon to indicate clickable */}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-5 h-5 text-slate-500 group-hover:text-white transition-colors">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
                 </svg>
             </button>
 
