@@ -4,6 +4,19 @@ import { OrbitControls, Stars, Float, Text, Outlines, Billboard, Html, RoundedBo
 import * as THREE from 'three'
 
 // -- Constants
+// -- Constants
+const MOUNTAIN_SLOTS = [
+    new THREE.Vector3(-86, 0, -62),
+    new THREE.Vector3(-28, 0, -92),
+    new THREE.Vector3(44, 0, -74),
+    new THREE.Vector3(92, 0, -18),
+    new THREE.Vector3(70, 0, 64),
+    new THREE.Vector3(10, 0, 94),
+    new THREE.Vector3(-66, 0, 74),
+    new THREE.Vector3(-98, 0, 18),
+    new THREE.Vector3(0, 0, -10),
+]
+
 const TIME_THEMES = {
     day: {
         skyKey: 'day',
@@ -148,6 +161,25 @@ function hashToUnitFloat(n) {
     return x - Math.floor(x)
 }
 
+function getGroundHeight(x, z, seedInt) {
+    const r = Math.sqrt(x * x + z * z)
+
+    // Keep the gameplay area near the mountain flatter/cleaner.
+    // Keep the area near world origin slightly cleaner; mountains are placed in slots elsewhere.
+    const clear = smoothstep(6.0, 12.0, r)
+
+    const w1 = Math.sin(x * 0.08 + z * 0.03)
+    const w2 = Math.cos(z * 0.07 - x * 0.02)
+    const w3 = Math.sin((x + z) * 0.045)
+
+    // Grid-based jitter for "low poly" feel if desired, or smooth noise
+    // Using floor to lock it to a grid makes it look blocky/low-poly if resolution is low,
+    // but here we are sampling per vertex so it just adds noise.
+    const jitter = (hashToUnitFloat(seedInt + Math.floor(x * 2) * 31 + Math.floor(z * 2) * 17) - 0.5)
+
+    return (w1 * 0.18 + w2 * 0.14 + w3 * 0.10 + jitter * 0.06) * clear
+}
+
 function cubicBezierVec3(p0, p1, p2, p3, t) {
     const it = 1 - t
     const it2 = it * it
@@ -195,21 +227,12 @@ function Landscape({ theme, seed }) {
         for (let i = 0; i < pos.count; i++) {
             const x = pos.getX(i)
             const z = pos.getZ(i)
-            const r = Math.sqrt(x * x + z * z)
 
-            // Keep the gameplay area near the mountain flatter/cleaner.
-            // Keep the area near world origin slightly cleaner; mountains are placed in slots elsewhere.
-            const clear = smoothstep(6.0, 12.0, r)
-
-            const w1 = Math.sin(x * 0.08 + z * 0.03)
-            const w2 = Math.cos(z * 0.07 - x * 0.02)
-            const w3 = Math.sin((x + z) * 0.045)
-            const jitter = (hashToUnitFloat(seedInt + Math.floor(x * 2) * 31 + Math.floor(z * 2) * 17) - 0.5)
-
-            const y = (w1 * 0.18 + w2 * 0.14 + w3 * 0.10 + jitter * 0.06) * clear
+            const y = getGroundHeight(x, z, seedInt)
             pos.setY(i, y)
 
             // Gentle color variation by height + distance (no texture detail)
+            const r = Math.sqrt(x * x + z * z)
             const h = clamp01((y + 0.25) / 0.9)
             const d = smoothstep(20, 150, r)
             const c = base.clone().lerp(edge, 0.35 * d + 0.25 * h)
@@ -221,22 +244,44 @@ function Landscape({ theme, seed }) {
         return geo
     }, [seedInt, theme.ground?.base, theme.ground?.edge])
 
-    const peaks = useMemo(() => {
-        // World peaks distributed across the whole landscape for depth.
+    const Peaks = useMemo(() => {
+        // More realistic mountain ranges: Grouped clusters instead of random scatter
         const rng = (k) => hashToUnitFloat(seedInt * 99991 + k * 7919)
-        const count = 26
-        const list = []
-        for (let i = 0; i < count; i++) {
-            const a = rng(i + 1) * Math.PI * 2
-            const r = 55 + rng(i + 50) * 120
-            const x = Math.cos(a) * r
-            const z = Math.sin(a) * r
-            const h = 2.6 + rng(i + 200) * 4.6
-            const rad = 1.7 + rng(i + 400) * 2.2
-            const yaw = rng(i + 800) * Math.PI * 2
-            list.push({ x, z, h, rad, yaw })
+        const ranges = []
+
+        // Create 3 main ranges in the distance
+        const rangeCount = 3
+        for (let r = 0; r < rangeCount; r++) {
+            const rangeAngle = (r / rangeCount) * Math.PI * 2 + (rng(r) * 1.5)
+            const dist = 140 + rng(r + 10) * 80
+            const count = 15 + Math.floor(rng(r + 20) * 10)
+
+            for (let i = 0; i < count; i++) {
+                // Spread hills along a line perpendicular to the center
+                const spread = (rng(i + 100) - 0.5) * 120
+                const depth = (rng(i + 200) - 0.5) * 30
+
+                // Position relative to range center
+                const cx = Math.cos(rangeAngle) * dist
+                const cz = Math.sin(rangeAngle) * dist
+
+                // Perpendicular vector
+                const px = -Math.sin(rangeAngle)
+                const pz = Math.cos(rangeAngle)
+
+                const x = cx + px * spread + Math.cos(rangeAngle) * depth
+                const z = cz + pz * spread + Math.sin(rangeAngle) * depth
+
+                const h = 15 + rng(i + 300) * 35 // Much taller, more majestic
+                const rad = 12 + rng(i + 400) * 18 // Wider bases
+
+                // Varying styles: some sharp, some broad
+                const sharpness = 0.5 + rng(i + 500) * 0.5
+
+                ranges.push({ x, z, h, rad, sharpness })
+            }
         }
-        return list
+        return ranges
     }, [seedInt])
 
     const baseColor = theme.distant?.base || theme.mountain.base
@@ -248,34 +293,110 @@ function Landscape({ theme, seed }) {
                 <meshStandardMaterial vertexColors roughness={0.92} metalness={0.0} />
             </mesh>
 
-            {/* Distant peaks */}
+            <Trees theme={theme} seedInt={seedInt} />
+
+            {/* Distant peaks - Realistic Ranges */}
             <group>
-                {peaks.map((p, i) => (
-                    <group key={i} position={[p.x, 0.0, p.z]} rotation={[0, p.yaw, 0]}>
+                {Peaks.map((p, i) => (
+                    <group key={i} position={[p.x, -2, p.z]}>
+                        {/* Main mountain body */}
                         <mesh position={[0, p.h * 0.5, 0]} castShadow receiveShadow>
-                            <coneGeometry args={[p.rad, p.h, 10, 1]} />
+                            <coneGeometry args={[p.rad, p.h, 7, 1]} />{/* Low poly look */}
                             <meshToonMaterial color={baseColor} />
                         </mesh>
-                        <mesh position={[0, p.h * 0.86, 0]} castShadow receiveShadow>
-                            <coneGeometry args={[p.rad * 0.55, p.h * 0.42, 10, 1]} />
+                        {/* Snow cap */}
+                        <mesh position={[0, p.h * 0.8, 0]}>
+                            <coneGeometry args={[p.rad * 0.45, p.h * 0.4, 7, 1]} />
                             <meshToonMaterial color={snowColor} />
                         </mesh>
                     </group>
                 ))}
             </group>
 
-            {/* Atmospheric perspective / haze band (minimal, keeps mountains visible) */}
+            {/* Atmospheric perspective / haze band */}
             <group position={[0, 6.5, -58]}>
                 <mesh>
-                    <planeGeometry args={[260, 58]} />
+                    <planeGeometry args={[460, 88]} />
                     <meshBasicMaterial color={theme.fog.color} transparent opacity={theme.atmosphere?.haze1 ?? 0.18} depthWrite={false} />
-                </mesh>
-                <mesh position={[0, -7, -12]}>
-                    <planeGeometry args={[320, 84]} />
-                    <meshBasicMaterial color={theme.fog.color} transparent opacity={theme.atmosphere?.haze2 ?? 0.1} depthWrite={false} />
                 </mesh>
             </group>
         </group>
+    )
+}
+
+function Trees({ theme, seedInt }) {
+    const meshRef = useRef()
+
+    // Generate tree data once
+    const { count, serverData } = useMemo(() => {
+        const _count = 400
+        const _data = []
+        const rng = (k) => hashToUnitFloat(seedInt * 7331 + k * 1993)
+
+        for (let i = 0; i < _count; i++) {
+            // Random position in a large area
+            const angle = rng(i) * Math.PI * 2
+            const r = 25 + rng(i + 1) * 110 // Start at 25m (clearering center) out to 135m
+
+            const x = Math.cos(angle) * r
+            const z = Math.sin(angle) * r
+
+            // Get height from the shared landscape function
+            const y = getGroundHeight(x, z, seedInt)
+
+            // Scale variation
+            const scale = 0.8 + rng(i + 2) * 0.8
+
+            // Rotation
+            const rotY = rng(i + 3) * Math.PI * 2
+
+            _data.push({ position: [x, y, z], scale, rotation: [0, rotY, 0] })
+        }
+        return { count: _count, serverData: _data }
+    }, [seedInt])
+
+    // Update instances
+    useMemo(() => {
+        if (!meshRef.current) return
+        const tempObj = new THREE.Object3D()
+
+        for (let i = 0; i < count; i++) {
+            const d = serverData[i]
+            tempObj.position.set(...d.position)
+            tempObj.rotation.set(...d.rotation)
+            tempObj.scale.set(d.scale, d.scale, d.scale)
+            tempObj.updateMatrix()
+            meshRef.current.setMatrixAt(i, tempObj.matrix)
+        }
+        meshRef.current.instanceMatrix.needsUpdate = true
+    }, [count, serverData]) // Actually this needs to run inside a useEffect or LayoutEffect to catch the ref, but regular useMemo implies render-time. 
+    // Better: use useLayoutEffect to update the mesh when data changes.
+
+    React.useLayoutEffect(() => {
+        if (meshRef.current) {
+            const tempObj = new THREE.Object3D()
+            for (let i = 0; i < count; i++) {
+                const d = serverData[i]
+                tempObj.position.set(...d.position)
+                tempObj.rotation.set(...d.rotation)
+                tempObj.scale.set(d.scale, d.scale, d.scale)
+                tempObj.updateMatrix()
+                meshRef.current.setMatrixAt(i, tempObj.matrix)
+            }
+            meshRef.current.instanceMatrix.needsUpdate = true
+        }
+    }, [count, serverData])
+
+    // Tree Colors based on theme
+    const treeColor = theme.ground.base === '#efe3cf' ? '#2d4c3b' : // Day: Green
+        theme.ground.base === '#6a5860' ? '#3d2e38' : // Sunset: Dark Purple/Brown
+            '#162638'; // Night: Dark Blue/Black
+
+    return (
+        <instancedMesh ref={meshRef} args={[null, null, count]} castShadow receiveShadow>
+            <coneGeometry args={[0.8, 2.5, 5]} />
+            <meshToonMaterial color={treeColor} />
+        </instancedMesh>
     )
 }
 
@@ -883,17 +1004,8 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay, isTouring, tourIn
     // Place each mountain in a deterministic "slot" on the landscape so switching reads as travel.
     const mountainOrigin = useMemo(() => {
         const seedInt = makeSeedInt(mountainId || 'default')
-        const slots = [
-            new THREE.Vector3(-86, 0, -62),
-            new THREE.Vector3(-28, 0, -92),
-            new THREE.Vector3(44, 0, -74),
-            new THREE.Vector3(92, 0, -18),
-            new THREE.Vector3(70, 0, 64),
-            new THREE.Vector3(10, 0, 94),
-            new THREE.Vector3(-66, 0, 74),
-            new THREE.Vector3(-98, 0, 18),
-            new THREE.Vector3(0, 0, -10),
-        ]
+        // Use predefined slots
+        const slots = MOUNTAIN_SLOTS
         const idx = Math.floor(hashToUnitFloat(seedInt + 101) * slots.length)
         const base = slots[idx]
         const jitterX = (hashToUnitFloat(seedInt + 202) - 0.5) * 10
