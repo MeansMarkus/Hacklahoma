@@ -21,17 +21,36 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
+
+      // New format: { mountains: [...], currentIndex: 0 }
+      if (parsed.mountains && Array.isArray(parsed.mountains)) {
+        return {
+          mountains: parsed.mountains,
+          currentIndex: typeof parsed.currentIndex === 'number' ? parsed.currentIndex : 0
+        }
+      }
+
+      // Old format migration: { goal: '...', tasks: [...] }
       return {
-        goal: parsed.goal || '',
-        tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+        mountains: [{
+          id: 'default',
+          goal: parsed.goal || '',
+          tasks: Array.isArray(parsed.tasks) ? parsed.tasks : []
+        }],
+        currentIndex: 0
       }
     }
   } catch (_) { }
-  return { goal: '', tasks: [] }
+
+  // Default empty state
+  return {
+    mountains: [{ id: Date.now().toString(), goal: '', tasks: [] }],
+    currentIndex: 0
+  }
 }
 
-function saveState(goal, tasks) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ goal, tasks }))
+function saveState(mountains, currentIndex) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ mountains, currentIndex }))
 }
 
 function getProgress(tasks) {
@@ -67,18 +86,24 @@ function extractJsonFromText(text) {
 
 export default function App() {
   const initialState = useMemo(() => loadState(), [])
-  const [goal, setGoal] = useState(() => initialState.goal)
-  const [tasks, setTasks] = useState(() => initialState.tasks)
+  const [mountains, setMountains] = useState(() => initialState.mountains)
+  const [currentMountainIndex, setCurrentMountainIndex] = useState(() => initialState.currentIndex)
+
+  const currentMountain = mountains[currentMountainIndex] || mountains[0]
+  const goal = currentMountain.goal
+  const tasks = currentMountain.tasks
+
   const [showCelebration, setShowCelebration] = useState(false)
   const [celebrated, setCelebrated] = useState(false)
   const [taskCount, setTaskCount] = useState(DEFAULT_TASK_COUNT)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generateError, setGenerateError] = useState('')
   const [showTasks, setShowTasks] = useState(true)
+  const [showMountainList, setShowMountainList] = useState(false)
 
   useEffect(() => {
-    saveState(goal, tasks)
-  }, [goal, tasks])
+    saveState(mountains, currentMountainIndex)
+  }, [mountains, currentMountainIndex])
 
   const progress = getProgress(tasks)
   const altitude = getAltitude(tasks)
@@ -92,44 +117,81 @@ export default function App() {
     if (!isSummitReached) setCelebrated(false)
   }, [isSummitReached, celebrated])
 
+  const handleNextMountain = useCallback(() => {
+    const nextIndex = currentMountainIndex + 1;
+    if (nextIndex < mountains.length) {
+      setCurrentMountainIndex(nextIndex);
+    } else {
+      // Create new mountain
+      setMountains(prev => [...prev, { id: Date.now().toString(), goal: '', tasks: [] }]);
+      setCurrentMountainIndex(nextIndex);
+    }
+    // Reset generic UI states when switching
+    setShowCelebration(false);
+    setCelebrated(false);
+  }, [currentMountainIndex, mountains.length]);
+
+  const handlePrevMountain = useCallback(() => {
+    if (currentMountainIndex > 0) {
+      setCurrentMountainIndex(currentMountainIndex - 1);
+      setShowCelebration(false);
+      setCelebrated(false);
+    }
+  }, [currentMountainIndex]);
+
+  const updateCurrentMountain = useCallback((updater) => {
+    setMountains(prev => {
+      const newMountains = [...prev];
+      newMountains[currentMountainIndex] = updater(newMountains[currentMountainIndex]);
+      return newMountains;
+    });
+  }, [currentMountainIndex]);
+
   const handleSetGoal = useCallback((text) => {
-    // If we've reached the summit (all tasks done), setting a new goal implies a new adventure.
-    // Reset tasks and celebration state.
     const doneCount = tasks.filter(t => t.done).length
     const total = tasks.length
     const summitReached = total > 0 && doneCount === total
 
     if (summitReached) {
-      setTasks([])
+      updateCurrentMountain(m => ({ ...m, tasks: [], goal: text }));
       setCelebrated(false)
       setShowCelebration(false)
+    } else {
+      updateCurrentMountain(m => ({ ...m, goal: text }));
     }
-    setGoal(text)
-  }, [tasks])
+  }, [tasks, updateCurrentMountain])
+
   const handleAddTask = useCallback((text) => {
-    setTasks((prev) => [
-      ...prev,
-      {
+    updateCurrentMountain(m => ({
+      ...m,
+      tasks: [...m.tasks, {
         id: Date.now().toString(36) + Math.random().toString(36).slice(2),
         text,
         done: false,
-      },
-    ])
-  }, [])
+      }]
+    }));
+  }, [updateCurrentMountain])
+
   const handleToggleTask = useCallback((id) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
-    )
-  }, [])
+    updateCurrentMountain(m => ({
+      ...m,
+      tasks: m.tasks.map((t) => (t.id === id ? { ...t, done: !t.done } : t))
+    }));
+  }, [updateCurrentMountain])
+
   const handleRemoveTask = useCallback((id) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-  }, [])
+    updateCurrentMountain(m => ({
+      ...m,
+      tasks: m.tasks.filter((t) => t.id !== id)
+    }));
+  }, [updateCurrentMountain])
 
   const handlePhotoUpdate = useCallback((id, photoData) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, photo: photoData } : t))
-    )
-  }, [])
+    updateCurrentMountain(m => ({
+      ...m,
+      tasks: m.tasks.map((t) => (t.id === id ? { ...t, photo: photoData } : t))
+    }));
+  }, [updateCurrentMountain])
 
   const handleTaskCountChange = useCallback((value) => {
     const parsed = Number.parseInt(value, 10)
@@ -202,8 +264,10 @@ Output schema exactly:
         .filter((text) => text.length > 0)
         .slice(0, count)
 
-      setTasks((prev) => {
-        const existing = new Set(prev.map((t) => normalizeForCompare(t.text)))
+        .slice(0, count)
+
+      updateCurrentMountain(m => {
+        const existing = new Set(m.tasks.map((t) => normalizeForCompare(t.text)))
         const additions = []
 
         for (const text of normalizedTasks) {
@@ -218,7 +282,7 @@ Output schema exactly:
           }
         }
 
-        return additions.length ? [...prev, ...additions] : prev
+        return additions.length ? { ...m, tasks: [...m.tasks, ...additions] } : m
       })
     } catch (error) {
       const message =
@@ -227,17 +291,71 @@ Output schema exactly:
     } finally {
       setIsGenerating(false)
     }
-  }, [goal, taskCount])
+  }, [goal, taskCount, updateCurrentMountain])
 
   return (
     <>
       <div className={`relative min-h-screen overflow-hidden ${isSummitReached ? 'summit-reached' : ''}`}>
+
+        {/* Navigation Arrows */}
+        <div className="fixed inset-0 pointer-events-none z-30 flex items-center justify-between px-4">
+          {/* Left Arrow */}
+          <button
+            onClick={handlePrevMountain}
+            className={`pointer-events-auto p-3 rounded-full bg-slate-800/50 backdrop-blur-sm text-white border border-slate-600/50 transition-all hover:bg-slate-700/80 hover:scale-110 ${currentMountainIndex === 0 ? 'opacity-30 cursor-not-allowed' : 'opacity-100 shadow-xl'}`}
+            disabled={currentMountainIndex === 0}
+            title="Previous Mountain"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-8 h-8">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+
+          {/* Right Arrow */}
+          <button
+            onClick={handleNextMountain}
+            className="pointer-events-auto p-3 rounded-full bg-slate-800/50 backdrop-blur-sm text-white border border-slate-600/50 transition-all hover:bg-slate-700/80 hover:scale-110 shadow-xl"
+            title={currentMountainIndex === mountains.length - 1 ? "Start New Mountain" : "Next Mountain"}
+          >
+            {currentMountainIndex === mountains.length - 1 ? (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-8 h-8 text-emerald-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-8 h-8">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+              </svg>
+            )}
+          </button>
+        </div>
+
+        {/* Mountain Indicator */}
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-30 pointer-events-none">
+          <div className="bg-slate-900/60 backdrop-blur-md px-4 py-1.5 rounded-full border border-slate-700/50 text-xs font-semibold text-slate-300 shadow-lg">
+            Mountain {currentMountainIndex + 1} {currentMountainIndex + 1 > mountains.length ? '(New)' : ''}
+          </div>
+        </div>
+
+
         {/* Fullscreen 3D Mountain Background */}
         <Mountain3D goal={goal} tasks={tasks} onPhotoUpdate={handlePhotoUpdate} />
 
         {/* Header / Top Navigation */}
         <header className="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-start pointer-events-none">
-          <div className="pointer-events-auto">
+
+          {/* Left Side: Mountain List Toggle & Altitude */}
+          <div className="flex flex-col gap-4 pointer-events-auto">
+            <button
+              onClick={() => setShowMountainList(!showMountainList)}
+              className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl text-slate-100 hover:bg-slate-800 transition-colors flex items-center gap-2 group self-start"
+              title="My Expeditions"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-cyan-400 group-hover:scale-110 transition-transform">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+              </svg>
+              <span className="font-semibold text-sm hidden group-hover:inline-block animate-slide-in">Expeditions</span>
+            </button>
+
             <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl inline-flex flex-col gap-1">
               <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Altitude</div>
               <div className="text-2xl font-mono text-cyan-400">{altitude}m</div>
@@ -261,6 +379,61 @@ Output schema exactly:
             </svg>
           </button>
         </header>
+
+        {/* Mountain List Sidebar */}
+        <div
+          className={`fixed top-20 left-4 w-72 max-w-[calc(100vw-2rem)] z-50 transition-all duration-300 transform origin-top-left ${showMountainList ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'}`}
+        >
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-4 max-h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar">
+            <div className="flex items-center justify-between pb-3 mb-3 border-b border-slate-800/80">
+              <h2 className="text-lg font-bold text-slate-100">My Expeditions</h2>
+              <button onClick={() => setShowMountainList(false)} className="text-slate-400 hover:text-white">✕</button>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              {mountains.map((m, idx) => {
+                const mProgress = getProgress(m.tasks);
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => { setCurrentMountainIndex(idx); setShowMountainList(false); }}
+                    className={`text-left p-3 rounded-xl border transition-all group ${currentMountainIndex === idx
+                        ? 'bg-cyan-950/40 border-cyan-500/50 ring-1 ring-cyan-500/20'
+                        : 'bg-slate-800/40 border-slate-700/30 hover:bg-slate-800/60'
+                      }`}
+                  >
+                    <div className="flex items-center justify-between mb-1">
+                      <span className={`text-xs font-bold uppercase tracking-wider ${currentMountainIndex === idx ? 'text-cyan-400' : 'text-slate-500'}`}>
+                        Mountain {idx + 1}
+                      </span>
+                      {currentMountainIndex === idx && <span className="text-xs text-cyan-400">Active</span>}
+                    </div>
+                    <div className="font-medium text-slate-200 truncate text-sm mb-1.5">
+                      {m.goal || "Untitled Expedition"}
+                    </div>
+                    <div className="w-full h-1 bg-slate-700 rounded-full overflow-hidden">
+                      <div
+                        className={`h-full ${mProgress === 100 ? 'bg-emerald-400' : 'bg-cyan-500'}`}
+                        style={{ width: `${mProgress}%` }}
+                      />
+                    </div>
+                  </button>
+                )
+              })}
+
+              <button
+                onClick={() => {
+                  setMountains(prev => [...prev, { id: Date.now().toString(), goal: '', tasks: [] }]);
+                  setCurrentMountainIndex(mountains.length);
+                  setShowMountainList(false);
+                }}
+                className="mt-2 p-3 rounded-xl border border-dashed border-slate-600/50 text-slate-400 hover:text-white hover:border-slate-500 hover:bg-slate-800/30 transition-all flex items-center justify-center gap-2 text-sm font-semibold"
+              >
+                <span>+</span> Start New Expedition
+              </button>
+            </div>
+          </div>
+        </div>
 
         {/* Task Dropdown / Overlay */}
         <div
