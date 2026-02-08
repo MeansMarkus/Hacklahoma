@@ -6,17 +6,16 @@ export function lerp(a, b, t) {
 // We'll define a series of points that look like they go up the mountain ridge
 // The reference image has a main peak at roughly x=400, y=100 (top)
 // We can have the climber start from the bottom left or right. 
-// Let's assume they spiral up or go up the main ridge.
 // For simplicity and matching the previous logic, let's go from bottom-right (or bottom-left) to the top.
 // The previous logic was RIGHT_BASE to SUMMIT.
 // Let's keep it similar but match the new visual curvature.
 
 const POINTS = [
-    { x: 700, y: 500 }, // Start at bottom right
-    { x: 600, y: 400 },
-    { x: 500, y: 250 },
-    { x: 450, y: 180 },
-    { x: 400, y: 100 }  // Summit
+    { x: 750, y: 450 }, // Start low right (Base)
+    { x: 620, y: 280 }, // Up to Secondary Peak
+    { x: 550, y: 350 }, // Down to Valley
+    { x: 420, y: 220 }, // Up Main Peak side
+    { x: 400, y: 100 }  // Main Summit
 ];
 
 export function getClimberPosition(totalTasks, doneCount) {
