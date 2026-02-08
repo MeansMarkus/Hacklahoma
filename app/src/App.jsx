@@ -618,14 +618,6 @@ Output schema exactly:
                   </div>
                 </div>
 
-<<<<<<< HEAD
-                <MountainListTab
-                  mountains={mountains}
-                  currentId={currentMountainId}
-                  onSelect={handleSelectMountain}
-                  onDelete={handleDeleteMountain}
-                />
-=======
                 <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl inline-flex flex-col gap-2">
                   <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Time of day</div>
                   <div className="flex items-center gap-2">
@@ -649,7 +641,6 @@ Output schema exactly:
                     ))}
                   </div>
                 </div>
->>>>>>> 893394795b421caf4b63e9c5928112f5d1c1f21c
               </div>
 
               <button
@@ -671,6 +662,13 @@ Output schema exactly:
               onNext={handleNextMountain}
               canGoPrev={currentMountainIndex > 0}
               isLast={currentMountainIndex === mountains.length - 1}
+            />
+
+            <MountainListTab
+              mountains={mountains}
+              currentId={currentMountainId}
+              onSelect={handleSelectMountain}
+              onDelete={handleDeleteMountain}
             />
 
 
