@@ -34,12 +34,12 @@ const TIME_THEMES = {
             haze2: 0.08,
         },
         steps: {
-            base: '#9b6a3d',
-            traveled: '#7d5632',
-            active: '#f7d08a',
-            reached: '#6cd3a1',
-            emissiveActive: '#f0b24d',
-            emissiveReached: '#2fb980',
+            base: '#94a3b8', // Slate 400 - Stone
+            traveled: '#64748b', // Slate 500
+            active: '#fcd34d', // Amber 300
+            reached: '#86efac', // Green 300
+            emissiveActive: '#fbbf24',
+            emissiveReached: '#4ade80',
         },
     },
     sunset: {
@@ -72,12 +72,12 @@ const TIME_THEMES = {
             haze2: 0.12,
         },
         steps: {
-            base: '#b06a39',
-            traveled: '#8c4f2b',
-            active: '#f59e0b',
-            reached: '#f0c07a',
-            emissiveActive: '#f4a261',
-            emissiveReached: '#f2c589',
+            base: '#a8a29e', // Stone warm gray
+            traveled: '#78716c', // Darker warm gray
+            active: '#fbbf24',
+            reached: '#fdba74',
+            emissiveActive: '#f59e0b',
+            emissiveReached: '#fb923c',
         },
         climberLight: { intensity: 0.35, color: '#fbd0a1' },
     },
@@ -110,12 +110,12 @@ const TIME_THEMES = {
             haze2: 0.1,
         },
         steps: {
-            base: '#3c2f2a',
-            traveled: '#2a211d',
-            active: '#8ab6ff',
-            reached: '#4fd1a1',
-            emissiveActive: '#6ea8ff',
-            emissiveReached: '#43b58d',
+            base: '#475569', // Slate 600
+            traveled: '#334155', // Slate 700
+            active: '#60a5fa',
+            reached: '#34d399',
+            emissiveActive: '#3b82f6',
+            emissiveReached: '#10b981',
         },
         climberLight: { intensity: 0.45, color: '#c7dbff' },
     },
@@ -392,22 +392,26 @@ function Staircase({ steps, doneCount, theme }) {
                 }
 
                 return (
-                    <mesh
+                    <group
                         key={index}
                         position={step.position}
                         rotation={step.rotation}
-                        castShadow
-                        receiveShadow
                     >
-                        {/* Checkpoints are slightly larger platforms */}
-                        <boxGeometry args={[isCheckpoint ? 0.8 : 0.5, 0.05, isCheckpoint ? 0.5 : 0.3]} />
-                        <meshStandardMaterial
-                            color={color}
-                            emissive={emissive}
-                            emissiveIntensity={0.5}
-                            roughness={0.6}
-                        />
-                    </mesh>
+                        <RoundedBox
+                            args={step.dims || [0.5, 0.05, 0.3]}
+                            radius={0.02}
+                            smoothness={4}
+                            castShadow
+                            receiveShadow
+                        >
+                            <meshToonMaterial
+                                color={color}
+                                emissive={emissive}
+                                emissiveIntensity={0.4}
+                            />
+                            <Outlines thickness={0.02} color={theme.mountain.shadow} />
+                        </RoundedBox>
+                    </group>
                 )
             })}
         </group>
@@ -721,21 +725,60 @@ function useStaircasePath(tasks) {
 
             // Current height
             const y = startY + t * (endY - startY);
-            const radius = getRadius(y);
+            const idealRadius = getRadius(y);
 
-            const x = Math.cos(angle) * (radius + 0.6); // Start slightly outside surface
-            const z = Math.sin(angle) * (radius + 0.6);
+            // Replicate MountainMesh displacement logic to find surface radius
+            // Mesh is at world Y = 0.5 (Group @ -2 + Mesh @ 2.5)
+            // Local Y = World Y - 0.5
+            const localY = y - 0.5;
+
+            // Wave function from MountainMesh
+            // const angle = Math.atan2(vertex.z, vertex.x); -> This matches our 'angle'
+            const wave = Math.sin(angle * 5) * 0.15 + Math.cos(localY * 2.0) * 0.1;
+            
+            // Factor from MountainMesh
+            // const factor = 1 + wave * (1.0 - (vertex.y + 2.5) / 5.0 * 0.5);
+            const factor = 1 + wave * (1.0 - (localY + 2.5) / 5.0 * 0.5);
+
+            const surfaceRadius = idealRadius * factor;
+
+            // Offset for step attachment
+            // Embed steps: center is near surfaceRadius
+            const embedOffset = 0.15; 
+            
+            // Add deterministic jitter
+            const seed = i * 1337;
+            const jitterRadial = (Math.sin(seed) * 0.5 + 0.5) * 0.1; // 0 to 0.1 variation
+            
+            const stepRadius = surfaceRadius + embedOffset + jitterRadial;
+
+            const x = Math.cos(angle) * stepRadius;
+            const z = Math.sin(angle) * stepRadius;
 
             const position = [x, y, z];
-            // Rotate to align with radial outward direction
-            const rotation = [0, -angle, 0];
+            
+            // Rotate to align with radial outward direction + slight random tilt
+            const jitterRotX = (Math.cos(seed * 0.5) * 0.5 - 0.25) * 0.1; // Slight pitch
+            const jitterRotZ = (Math.sin(seed * 2.5) * 0.5 - 0.25) * 0.1; // Slight roll
+            
+            const rotation = [jitterRotX, -angle, jitterRotZ];
+
+            // Size jitter
+            const widthJitter = (Math.sin(seed * 3.3) * 0.5 + 0.5) * 0.1;
+            const heightJitter = (Math.cos(seed * 4.1) * 0.5 + 0.5) * 0.04;
+            const depthJitter = (Math.sin(seed * 5.7) * 0.5 + 0.5) * 0.1;
 
             generatedSteps.push({
                 position,
                 rotation,
                 overallIndex: i,
                 isCheckpoint: false,
-                checkpointIndex: -1
+                checkpointIndex: -1,
+                // Store data for potential update if it becomes a checkpoint
+                angle,
+                y,
+                surfaceRadius,
+                dims: [0.5 + widthJitter, 0.08 + heightJitter, 0.3 + depthJitter]
             });
         }
 
@@ -748,8 +791,20 @@ function useStaircasePath(tasks) {
                 const stepIndex = Math.floor(((k + 1) / tasks.length) * (generatedSteps.length - 1));
 
                 if (generatedSteps[stepIndex]) {
-                    generatedSteps[stepIndex].isCheckpoint = true;
-                    generatedSteps[stepIndex].checkpointIndex = k;
+                    const step = generatedSteps[stepIndex];
+                    step.isCheckpoint = true;
+                    step.checkpointIndex = k;
+
+                    // Update position for checkpoint width (0.8)
+                    // Checkpoints stick out slightly more
+                    const embedOffset = 0.25;
+                    const stepRadius = step.surfaceRadius + embedOffset;
+                    
+                    step.position[0] = Math.cos(step.angle) * stepRadius;
+                    step.position[2] = Math.sin(step.angle) * stepRadius;
+                    
+                    // Larger platform
+                    step.dims = [0.8, 0.12, 0.5];
                 }
             }
         } else {
@@ -758,6 +813,14 @@ function useStaircasePath(tasks) {
             if (lastStep) {
                 lastStep.isCheckpoint = true;
                 lastStep.checkpointIndex = 0;
+
+                const embedOffset = 0.25;
+                const stepRadius = lastStep.surfaceRadius + embedOffset;
+                
+                lastStep.position[0] = Math.cos(lastStep.angle) * stepRadius;
+                lastStep.position[2] = Math.sin(lastStep.angle) * stepRadius;
+                
+                lastStep.dims = [0.8, 0.12, 0.5];
             }
         }
 
