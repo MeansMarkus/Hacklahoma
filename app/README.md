@@ -22,6 +22,16 @@ npm run dev
 
 Open http://localhost:5173
 
+## Firebase setup (auth + goals/tasks + photos)
+
+1. Create a Firebase project.
+2. Enable **Authentication** (Email/Password).
+3. Create a **Firestore** database.
+4. Enable **Storage**.
+5. Copy `.env.example` to `.env` and fill in your Firebase config values.
+
+After that, the app will sync goals, tasks, and photos per user.
+
 ## Build
 
 ```bash

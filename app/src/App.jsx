@@ -1,4 +1,13 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import {
+  onAuthStateChanged,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+} from 'firebase/auth'
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
+import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage'
+import { auth, db, storage, firebaseReady } from './firebase'
 // import Sky from './components/Sky' // Removed
 import Mountain3D from './components/Mountain3D'
 import GoalCard from './components/GoalCard'
@@ -56,6 +65,26 @@ function normalizeForCompare(text) {
   return normalizeTaskText(text).toLowerCase()
 }
 
+function isDataUrl(value) {
+  return typeof value === 'string' && value.startsWith('data:')
+}
+
+async function migrateLocalPhotos(uid, tasks) {
+  if (!storage) return tasks
+
+  const migrated = await Promise.all(
+    tasks.map(async (task) => {
+      if (!isDataUrl(task.photo)) return task
+      const photoRef = ref(storage, `users/${uid}/tasks/${task.id}`)
+      await uploadString(photoRef, task.photo, 'data_url')
+      const url = await getDownloadURL(photoRef)
+      return { ...task, photo: url }
+    })
+  )
+
+  return migrated
+}
+
 function extractJsonFromText(text) {
   const start = text.indexOf('{')
   const end = text.lastIndexOf('}')
@@ -66,19 +95,83 @@ function extractJsonFromText(text) {
 }
 
 export default function App() {
-  const initialState = useMemo(() => loadState(), [])
-  const [goal, setGoal] = useState(() => initialState.goal)
-  const [tasks, setTasks] = useState(() => initialState.tasks)
+  const [goal, setGoal] = useState('')
+  const [tasks, setTasks] = useState([])
   const [showCelebration, setShowCelebration] = useState(false)
   const [celebrated, setCelebrated] = useState(false)
   const [taskCount, setTaskCount] = useState(DEFAULT_TASK_COUNT)
   const [isGenerating, setIsGenerating] = useState(false)
   const [generateError, setGenerateError] = useState('')
   const [showTasks, setShowTasks] = useState(true)
+  const [user, setUser] = useState(null)
+  const [authEmail, setAuthEmail] = useState('')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authError, setAuthError] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
+  const [isHydrated, setIsHydrated] = useState(false)
 
   useEffect(() => {
+    if (!firebaseReady) {
+      const local = loadState()
+      setGoal(local.goal)
+      setTasks(local.tasks)
+      setIsHydrated(true)
+      return
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, async (nextUser) => {
+      setUser(nextUser)
+
+      try {
+        if (nextUser) {
+          const docRef = doc(db, 'users', nextUser.uid, 'state', 'current')
+          const snapshot = await getDoc(docRef)
+
+          if (snapshot.exists()) {
+            const data = snapshot.data() || {}
+            setGoal(typeof data.goal === 'string' ? data.goal : '')
+            setTasks(Array.isArray(data.tasks) ? data.tasks : [])
+          } else {
+            setGoal('')
+            setTasks([])
+            await setDoc(docRef, {
+              goal: '',
+              tasks: [],
+              updatedAt: serverTimestamp(),
+            })
+          }
+        } else {
+          const local = loadState()
+          setGoal(local.goal)
+          setTasks(local.tasks)
+        }
+      } catch (error) {
+        console.error('Failed to load user state', error)
+      } finally {
+        setIsHydrated(true)
+      }
+    })
+
+    return () => unsubscribe()
+  }, [])
+
+  useEffect(() => {
+    if (!isHydrated) return
+
+    if (firebaseReady && user) {
+      const docRef = doc(db, 'users', user.uid, 'state', 'current')
+      const payload = { goal, tasks, updatedAt: serverTimestamp() }
+      const timeout = setTimeout(() => {
+        setDoc(docRef, payload, { merge: true }).catch((error) => {
+          console.error('Failed to save user state', error)
+        })
+      }, 400)
+
+      return () => clearTimeout(timeout)
+    }
+
     saveState(goal, tasks)
-  }, [goal, tasks])
+  }, [goal, tasks, user, isHydrated, firebaseReady])
 
   const progress = getProgress(tasks)
   const altitude = getAltitude(tasks)
@@ -122,14 +215,79 @@ export default function App() {
     )
   }, [])
   const handleRemoveTask = useCallback((id) => {
-    setTasks((prev) => prev.filter((t) => t.id !== id))
-  }, [])
+    setTasks((prev) => {
+      const target = prev.find((task) => task.id === id)
+      if (firebaseReady && user && storage && target?.photo) {
+        const photoRef = ref(storage, `users/${user.uid}/tasks/${id}`)
+        deleteObject(photoRef).catch(() => { })
+      }
+      return prev.filter((t) => t.id !== id)
+    })
+  }, [firebaseReady, user])
 
-  const handlePhotoUpdate = useCallback((id, photoData) => {
-    setTasks((prev) =>
-      prev.map((t) => (t.id === id ? { ...t, photo: photoData } : t))
-    )
-  }, [])
+  const handlePhotoUpdate = useCallback(async (id, photoData) => {
+    if (!firebaseReady || !user || !storage) {
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, photo: photoData } : t))
+      )
+      return
+    }
+
+    const photoRef = ref(storage, `users/${user.uid}/tasks/${id}`)
+
+    if (!photoData) {
+      deleteObject(photoRef).catch(() => { })
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, photo: null } : t))
+      )
+      return
+    }
+
+    try {
+      await uploadString(photoRef, photoData, 'data_url')
+      const url = await getDownloadURL(photoRef)
+      setTasks((prev) =>
+        prev.map((t) => (t.id === id ? { ...t, photo: url } : t))
+      )
+    } catch (error) {
+      console.error('Failed to upload photo', error)
+    }
+  }, [firebaseReady, user])
+
+  const handleSignIn = useCallback(async (event) => {
+    event?.preventDefault()
+    if (!firebaseReady || !auth) return
+    setAuthBusy(true)
+    setAuthError('')
+    try {
+      await signInWithEmailAndPassword(auth, authEmail, authPassword)
+    } catch (error) {
+      setAuthError(error?.message || 'Failed to sign in.')
+    } finally {
+      setAuthBusy(false)
+    }
+  }, [authEmail, authPassword])
+
+  const handleSignUp = useCallback(async () => {
+    if (!firebaseReady || !auth) return
+    setAuthBusy(true)
+    setAuthError('')
+    try {
+      await createUserWithEmailAndPassword(auth, authEmail, authPassword)
+    } catch (error) {
+      setAuthError(error?.message || 'Failed to create account.')
+    } finally {
+      setAuthBusy(false)
+    }
+  }, [authEmail, authPassword])
+
+  const handleSignOut = useCallback(async () => {
+    if (!auth) return
+    await signOut(auth)
+    localStorage.removeItem(STORAGE_KEY)
+    setGoal('')
+    setTasks([])
+  }, [auth])
 
   const handleTaskCountChange = useCallback((value) => {
     const parsed = Number.parseInt(value, 10)
@@ -237,7 +395,63 @@ Output schema exactly:
 
         {/* Header / Top Navigation */}
         <header className="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-start pointer-events-none">
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto flex flex-col gap-3">
+            <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl w-72">
+              <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Account</div>
+              {!firebaseReady ? (
+                <p className="text-xs text-amber-200 mt-2">
+                  Firebase env vars missing. Add the values in .env to enable sign-in.
+                </p>
+              ) : user ? (
+                <div className="mt-2 flex flex-col gap-2">
+                  <div className="text-sm text-slate-200 truncate">Signed in as {user.email}</div>
+                  <button
+                    type="button"
+                    onClick={handleSignOut}
+                    className="px-3 py-2 rounded-lg bg-slate-800 text-slate-100 hover:bg-slate-700 transition-colors"
+                  >
+                    Sign out
+                  </button>
+                </div>
+              ) : (
+                <form onSubmit={handleSignIn} className="mt-2 flex flex-col gap-2">
+                  <input
+                    type="email"
+                    value={authEmail}
+                    onChange={(event) => setAuthEmail(event.target.value)}
+                    placeholder="Email"
+                    className="px-3 py-2 rounded-lg border border-slate-700/70 bg-slate-900/70 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                  />
+                  <input
+                    type="password"
+                    value={authPassword}
+                    onChange={(event) => setAuthPassword(event.target.value)}
+                    placeholder="Password"
+                    className="px-3 py-2 rounded-lg border border-slate-700/70 bg-slate-900/70 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      type="submit"
+                      disabled={authBusy}
+                      className="flex-1 px-3 py-2 rounded-lg bg-cyan-500/90 text-slate-900 font-semibold hover:bg-cyan-400 disabled:opacity-60"
+                    >
+                      Sign in
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSignUp}
+                      disabled={authBusy}
+                      className="flex-1 px-3 py-2 rounded-lg bg-slate-800 text-slate-100 hover:bg-slate-700 disabled:opacity-60"
+                    >
+                      Create
+                    </button>
+                  </div>
+                  {authError ? (
+                    <p className="text-xs text-rose-300">{authError}</p>
+                  ) : null}
+                </form>
+              )}
+            </div>
             <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl inline-flex flex-col gap-1">
               <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Altitude</div>
               <div className="text-2xl font-mono text-cyan-400">{altitude}m</div>
