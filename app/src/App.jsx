@@ -37,13 +37,15 @@ function loadState() {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw)
+      const timeOfDay = typeof parsed.timeOfDay === 'string' ? parsed.timeOfDay : 'night'
 
       // Migration check: if 'mountains' exists, return it, else migrate single goal
       if (Array.isArray(parsed.mountains)) {
         return {
           mountains: parsed.mountains,
           currentMountainId: parsed.currentMountainId || parsed.mountains[0]?.id,
-          taskGenerationPrompt: parsed.taskGenerationPrompt || ''
+          taskGenerationPrompt: parsed.taskGenerationPrompt || '',
+          timeOfDay
         }
       }
 
@@ -57,22 +59,29 @@ function loadState() {
       return {
         mountains: [initialMountain],
         currentMountainId: initialMountain.id,
-        taskGenerationPrompt: parsed.taskGenerationPrompt || ''
+        taskGenerationPrompt: parsed.taskGenerationPrompt || '',
+        timeOfDay
       }
     }
   } catch (_) { }
 
   // Default fresh state
   const newMountain = { id: generateId(), goal: '', tasks: [], createdAt: Date.now() }
-  return { mountains: [newMountain], currentMountainId: newMountain.id, taskGenerationPrompt: '' }
+  return {
+    mountains: [newMountain],
+    currentMountainId: newMountain.id,
+    taskGenerationPrompt: '',
+    timeOfDay: 'night'
+  }
 }
 
-function saveState(mountains, currentMountainId, taskGenerationPrompt) {
+function saveState(mountains, currentMountainId, taskGenerationPrompt, timeOfDay) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({
     version: STORAGE_VERSION,
     mountains,
     currentMountainId,
-    taskGenerationPrompt
+    taskGenerationPrompt,
+    timeOfDay
   }))
 }
 
@@ -121,6 +130,7 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generateError, setGenerateError] = useState('')
   const [showTasks, setShowTasks] = useState(true)
+  const [timeOfDay, setTimeOfDay] = useState('night')
   const [user, setUser] = useState(null)
   const [authEmail, setAuthEmail] = useState('')
   const [authPassword, setAuthPassword] = useState('')
@@ -135,6 +145,7 @@ export default function App() {
       setMountains(local.mountains)
       setCurrentMountainId(local.currentMountainId)
       setTaskGenerationPrompt(local.taskGenerationPrompt)
+      setTimeOfDay(local.timeOfDay)
       setIsHydrated(true)
       return
     }
@@ -155,6 +166,7 @@ export default function App() {
               setMountains(data.mountains)
               setCurrentMountainId(data.currentMountainId || data.mountains[0]?.id)
               setTaskGenerationPrompt(data.taskGenerationPrompt || '')
+              setTimeOfDay(typeof data.timeOfDay === 'string' ? data.timeOfDay : 'night')
             } else {
               // Migrate existing single goal
               const initialMountain = {
@@ -166,6 +178,7 @@ export default function App() {
               setMountains([initialMountain])
               setCurrentMountainId(initialMountain.id)
               setTaskGenerationPrompt(typeof data.taskGenerationPrompt === 'string' ? data.taskGenerationPrompt : '')
+              setTimeOfDay(typeof data.timeOfDay === 'string' ? data.timeOfDay : 'night')
             }
           } else {
             // New user, create initial mountain
@@ -174,18 +187,21 @@ export default function App() {
               mountains: [newMountain],
               currentMountainId: newMountain.id,
               taskGenerationPrompt: '',
+              timeOfDay: 'night',
               updatedAt: serverTimestamp(),
             }
             await setDoc(docRef, initialData)
             setMountains(initialData.mountains)
             setCurrentMountainId(initialData.currentMountainId)
             setTaskGenerationPrompt('')
+            setTimeOfDay(initialData.timeOfDay)
           }
         } else {
           const local = loadState()
           setMountains(local.mountains)
           setCurrentMountainId(local.currentMountainId)
           setTaskGenerationPrompt(local.taskGenerationPrompt)
+          setTimeOfDay(local.timeOfDay)
         }
       } catch (error) {
         console.error('Failed to load user state', error)
@@ -207,6 +223,7 @@ export default function App() {
         mountains,
         currentMountainId,
         taskGenerationPrompt,
+        timeOfDay,
         updatedAt: serverTimestamp()
       }
       const timeout = setTimeout(() => {
@@ -218,8 +235,8 @@ export default function App() {
       return () => clearTimeout(timeout)
     }
 
-    saveState(mountains, currentMountainId, taskGenerationPrompt)
-  }, [mountains, currentMountainId, taskGenerationPrompt, user, isHydrated, firebaseReady])
+    saveState(mountains, currentMountainId, taskGenerationPrompt, timeOfDay)
+  }, [mountains, currentMountainId, taskGenerationPrompt, timeOfDay, user, isHydrated, firebaseReady])
 
   // Derive Current Mountain Data
   const currentMountainIndex = mountains.findIndex(m => m.id === currentMountainId)
@@ -548,6 +565,7 @@ Output schema exactly:
           tasks={tasks}
           onPhotoUpdate={handlePhotoUpdate}
           mountainId={currentMountainId}
+          timeOfDay={timeOfDay}
         />
 
         {showLogin ? (
@@ -600,12 +618,38 @@ Output schema exactly:
                   </div>
                 </div>
 
+<<<<<<< HEAD
                 <MountainListTab
                   mountains={mountains}
                   currentId={currentMountainId}
                   onSelect={handleSelectMountain}
                   onDelete={handleDeleteMountain}
                 />
+=======
+                <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl inline-flex flex-col gap-2">
+                  <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Time of day</div>
+                  <div className="flex items-center gap-2">
+                    {[
+                      { id: 'day', label: 'Day', icon: '☀️' },
+                      { id: 'sunset', label: 'Sunset', icon: '🌅' },
+                      { id: 'night', label: 'Night', icon: '🌙' },
+                    ].map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setTimeOfDay(option.id)}
+                        className={`px-3 py-1.5 rounded-full text-xs font-semibold transition border ${timeOfDay === option.id
+                          ? 'bg-slate-200/90 text-slate-900 border-slate-100'
+                          : 'bg-slate-800/70 text-slate-200 border-slate-700/70 hover:border-slate-500'
+                          }`}
+                      >
+                        <span className="mr-1">{option.icon}</span>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+>>>>>>> 893394795b421caf4b63e9c5928112f5d1c1f21c
               </div>
 
               <button
