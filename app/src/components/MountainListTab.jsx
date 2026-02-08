@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 
-export default function MountainListTab({ mountains, currentId, onSelect, onDelete }) {
+export default function MountainListTab({ mountains, currentId, onSelect, onDelete, className = '' }) {
     const [isOpen, setIsOpen] = useState(false)
 
     return (
@@ -11,7 +11,7 @@ export default function MountainListTab({ mountains, currentId, onSelect, onDele
             <button
                 onClick={() => setIsOpen(!isOpen)}
                 className={`w-full px-4 py-3 bg-slate-900/80 text-white rounded-2xl hover:bg-slate-800/90 transition-all shadow-xl border border-slate-700/50 backdrop-blur-md flex items-center justify-between group ${isOpen ? 'opacity-0 pointer-events-none' : 'opacity-100'
-                    }`}
+                    } ${className}`}
                 title="Switch Mountain"
             >
                 <div className="flex flex-col items-start">

@@ -596,10 +596,10 @@ Output schema exactly:
         <>
           {/* Header / Top Navigation */}
           <header className="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-start pointer-events-none">
-            <div className="pointer-events-auto flex flex-col gap-3">
+            <div className="pointer-events-auto flex flex-col gap-1">
 
-              {/* Altitude & Motivation Card Row */}
-              <div className="flex items-start gap-4">
+              {/* Row 1: Altitude & Time of Day */}
+              <div className="flex gap-4">
                 <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl flex w-72 flex-col gap-1">
                   <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Altitude</div>
                   <div className="text-2xl font-mono text-cyan-400">{altitude}m</div>
@@ -610,38 +610,44 @@ Output schema exactly:
                     />
                   </div>
                 </div>
-                <MotivationCard goal={goal} tasks={tasks} progress={progress} />
+
+                <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl flex w-72 flex-col gap-2 pointer-events-auto h-full justify-center">
+                  <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Time of day</div>
+                  <div className="flex items-center gap-2 justify-between">
+                    {[
+                      { id: 'day', label: 'Day', icon: '☀️' },
+                      { id: 'sunset', label: 'Sunset', icon: '🌅' },
+                      { id: 'night', label: 'Night', icon: '🌙' },
+                    ].map((option) => (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => setTimeOfDay(option.id)}
+                        className={`flex-1 px-2 py-1.5 rounded-full text-xs font-semibold transition border flex items-center justify-center ${timeOfDay === option.id
+                          ? 'bg-slate-200/90 text-slate-900 border-slate-100'
+                          : 'bg-slate-800/70 text-slate-200 border-slate-700/70 hover:border-slate-500'
+                          }`}
+                      >
+                        <span className="mr-1">{option.icon}</span>
+                        {option.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
-              <MountainListTab
-                mountains={mountains}
-                currentId={currentMountainId}
-                onSelect={handleSelectMountain}
-                onDelete={handleDeleteMountain}
-              />
-
-              <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl flex w-full flex-col gap-2 pointer-events-auto">
-                <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Time of day</div>
-                <div className="flex items-center gap-2 justify-between">
-                  {[
-                    { id: 'day', label: 'Day', icon: '☀️' },
-                    { id: 'sunset', label: 'Sunset', icon: '🌅' },
-                    { id: 'night', label: 'Night', icon: '🌙' },
-                  ].map((option) => (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => setTimeOfDay(option.id)}
-                      className={`flex-1 px-2 py-1.5 rounded-full text-xs font-semibold transition border flex items-center justify-center ${timeOfDay === option.id
-                        ? 'bg-slate-200/90 text-slate-900 border-slate-100'
-                        : 'bg-slate-800/70 text-slate-200 border-slate-700/70 hover:border-slate-500'
-                        }`}
-                    >
-                      <span className="mr-1">{option.icon}</span>
-                      {option.label}
-                    </button>
-                  ))}
+              {/* Row 2: Expedition & Motivation */}
+              <div className="flex gap-4">
+                <div className="w-72">
+                  <MountainListTab
+                    mountains={mountains}
+                    currentId={currentMountainId}
+                    onSelect={handleSelectMountain}
+                    onDelete={handleDeleteMountain}
+                    className="h-full"
+                  />
                 </div>
+                <MotivationCard goal={goal} tasks={tasks} progress={progress} className="w-72 h-full" />
               </div>
             </div>
 
