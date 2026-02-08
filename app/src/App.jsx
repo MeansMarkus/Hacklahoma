@@ -9,9 +9,7 @@ import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore'
 import { ref, uploadString, getDownloadURL, deleteObject } from 'firebase/storage'
 import { auth, db, storage, firebaseReady } from './firebase'
 import Mountain3D from './components/Mountain3D'
-import GoalCard from './components/GoalCard'
-import TaskList from './components/TaskList'
-import CompletedTaskList from './components/CompletedTaskList'
+import ExpeditionLog from './components/ExpeditionLog'
 import MotivationCard from './components/MotivationCard'
 import SummitCelebration from './components/SummitCelebration'
 import LoginScreen from './components/LoginScreen'
@@ -706,41 +704,24 @@ Output schema exactly:
 
               <div className="flex flex-col gap-6">
 
-                {/* Top: Set Your Summit (Goal) */}
-                <GoalCard
-                  currentGoal={goal}
-                  onSetGoal={handleSetGoal}
-                  onGenerateTasks={handleGenerateTasks}
-                  taskCount={taskCount}
-                  onTaskCountChange={handleTaskCountChange}
-                  minTaskCount={MIN_TASK_COUNT}
-                  maxTaskCount={MAX_TASK_COUNT}
-                  isGenerating={isGenerating}
-                  generateError={generateError}
-                  taskGenerationPrompt={taskGenerationPrompt}
-                  onTaskGenerationPromptChange={setTaskGenerationPrompt}
-                />
-
-                {/* Middle: Ledges (Active Tasks) */}
-                <div className="flex flex-col gap-4">
-                  <TaskList
-                    tasks={tasks.filter(t => !t.done).slice(0, 3)}
+                <div className="flex flex-col h-full">
+                  <ExpeditionLog
+                    currentGoal={goal}
+                    tasks={tasks}
+                    onSetGoal={handleSetGoal}
+                    onGenerateTasks={handleGenerateTasks}
+                    taskCount={taskCount}
+                    onTaskCountChange={handleTaskCountChange}
+                    minTaskCount={MIN_TASK_COUNT}
+                    maxTaskCount={MAX_TASK_COUNT}
+                    isGenerating={isGenerating}
+                    generateError={generateError}
+                    taskGenerationPrompt={taskGenerationPrompt}
+                    onTaskGenerationPromptChange={setTaskGenerationPrompt}
                     onToggle={handleToggleTask}
                     onRemove={handleRemoveTask}
                     onAdd={handleAddTask}
                     onPhotoUpdate={handlePhotoUpdate}
-                  />
-                  <div className="text-xs text-center text-slate-500 italic">
-                    Showing top 3 active ledges
-                  </div>
-                </div>
-
-                {/* Bottom: History & Motivation */}
-                <div className="flex flex-col gap-4">
-                  <CompletedTaskList
-                    tasks={tasks.filter(t => t.done)}
-                    onToggle={handleToggleTask}
-                    onRemove={handleRemoveTask}
                   />
                 </div>
               </div>
