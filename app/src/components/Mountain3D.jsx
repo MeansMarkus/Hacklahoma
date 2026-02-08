@@ -846,7 +846,7 @@ function useStaircasePath(tasks, seed) {
     }, [tasks.length, seed]);
 }
 
-function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
+function Scene({ tasks, goal, isLocked, mountainId, timeOfDay, isTouring, tourIndex, isAutomatedTour, onTourIndexUpdate, onAutomatedTourEnd }) {
     const controlsRef = useRef()
     const { camera } = useThree()
     const steps = useStaircasePath(tasks, mountainId || 'default');
@@ -979,8 +979,6 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
     // -- State
     const [hoveredFlagIndex, setHoveredFlagIndex] = useState(null);
     const [tourOverrideTarget, setTourOverrideTarget] = useState(null);
-    const [isTouring, setIsTouring] = useState(false);
-    const [isAutomatedTour, setIsAutomatedTour] = useState(false);
 
     // Determine climber position (normal logic)
     const doneCount = tasks.filter(t => t.done).length;
@@ -995,24 +993,6 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
 
     // Actual target is override (during tour) or normal
     const targetStepIndex = isTouring && tourOverrideTarget !== null ? tourOverrideTarget : normalTargetStepIndex;
-
-    // -- Victory Tour Logic
-    const [tourIndex, setTourIndex] = useState(0);
-
-    // Start tour when summit reached
-    React.useEffect(() => {
-        if (tasks.length > 0 && doneCount === tasks.length) {
-            if (!isTouring) {
-                setIsTouring(true);
-                setTourIndex(0);
-                setTourOverrideTarget(0); // Snap to bottom for start
-                setIsAutomatedTour(true);
-            }
-        } else {
-            setIsTouring(false);
-            setIsAutomatedTour(false);
-        }
-    }, [doneCount, tasks.length]);
 
     // Sync tour state with visual targets
     React.useEffect(() => {
@@ -1030,47 +1010,6 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
         }
     }, [isTouring, tourIndex, steps]);
 
-    // Manual Navigation Handlers - these disable auto-tour
-    const handleNext = React.useCallback(() => {
-        setIsAutomatedTour(false);
-        if (tourIndex < tasks.length - 1) {
-            setHoveredFlagIndex(null); // Hide briefly
-            setTourIndex(prev => prev + 1);
-        }
-    }, [tourIndex, tasks.length]);
-
-    const handlePrev = React.useCallback(() => {
-        setIsAutomatedTour(false);
-        if (tourIndex > 0) {
-            setHoveredFlagIndex(null);
-            setTourIndex(prev => prev - 1);
-        }
-    }, [tourIndex]);
-
-    const handleExitTour = React.useCallback(() => {
-        setIsTouring(false);
-        setIsAutomatedTour(false);
-    }, []);
-
-    // Keyboard Navigation
-    React.useEffect(() => {
-        const handleKeyDown = (e) => {
-            if (!isTouring) return;
-            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-                e.preventDefault();
-                handleNext();
-            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
-                e.preventDefault();
-                handlePrev();
-            } else if (e.key === 'Escape') {
-                handleExitTour();
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isTouring, handleNext, handlePrev, handleExitTour]);
-
     const currentStep = steps[targetStepIndex] || steps[0];
 
     useFrame((state, delta) => {
@@ -1083,7 +1022,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
 
             if (next >= steps.length - 1) {
                 next = steps.length - 1;
-                setIsAutomatedTour(false);
+                onAutomatedTourEnd();
             }
 
             setTourOverrideTarget(next);
@@ -1092,7 +1031,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
             const floorIdx = Math.floor(next);
             const currentStep = steps[floorIdx];
             if (currentStep && currentStep.isCheckpoint && currentStep.checkpointIndex !== tourIndex) {
-                setTourIndex(currentStep.checkpointIndex);
+                onTourIndexUpdate(currentStep.checkpointIndex);
             }
         }
 
@@ -1233,74 +1172,9 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
                 autoRotateSpeed={0.5}
             />
 
-            {/* Victory Tour UI Overlay */}
-            {isTouring && (
-                <Html fullscreen style={{ pointerEvents: 'none' }}>
-                    <div className="absolute inset-0 flex items-end justify-end p-6 pointer-events-none">
-                        <div className="flex items-center gap-4 bg-slate-900/90 p-4 rounded-2xl border border-amber-500/30 shadow-2xl backdrop-blur-md pointer-events-auto mb-4 mr-4">
-                            <button
-                                onClick={handlePrev}
-                                disabled={tourIndex === 0}
-                                className="p-2 rounded-full hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent text-white transition"
-                                title="Previous Checkpoint"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
-                                    <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
-                                </svg>
-                            </button>
-
-                            <div className="flex flex-col items-center min-w-[120px]">
-                                <span className="text-amber-400 font-bold uppercase tracking-widest text-xs">Victory Tour</span>
-                                <span className="text-white font-mono text-sm">
-                                    {tourIndex + 1} / {tasks.length}
-                                </span>
-                            </div>
-
-                            <button
-                                onClick={handleNext}
-                                disabled={tourIndex === tasks.length - 1}
-                                className="p-2 rounded-full hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent text-white transition"
-                                title="Next Checkpoint"
-                            >
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
-                                    <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
-                                </svg>
-                            </button>
-
-                            <div className="w-px h-8 bg-slate-700 mx-2" />
-
-                            <button
-                                onClick={handleExitTour}
-                                className="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 text-xs font-bold uppercase tracking-wide transition border border-rose-500/20"
-                            >
-                                Exit
-                            </button>
-                        </div>
-                    </div>
-                </Html>
-            )}
-
-            {/* Replay Button Overlay */}
-            {!isTouring && tasks.length > 0 && doneCount === tasks.length && (
-                <Html fullscreen style={{ pointerEvents: 'none' }}>
-                    <div className="absolute inset-0 flex items-end justify-end p-6 pointer-events-none">
-                        <button
-                            onClick={() => {
-                                setIsTouring(true);
-                                setTourIndex(0);
-                                setTourOverrideTarget(0);
-                                setIsAutomatedTour(true);
-                            }}
-                            className="bg-amber-400 text-slate-900 px-6 py-3 rounded-full font-bold text-sm shadow-xl hover:bg-amber-300 transition-all pointer-events-auto border border-amber-300 flex items-center gap-2 active:scale-95 mb-4 mr-4"
-                        >
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM9.555 7.168A1 1 0 0 0 8 8v4a1 1 0 0 0 1.555.832l3-2a1 1 0 0 0 0-1.664l-3-2Z" clipRule="evenodd" />
-                            </svg>
-                            Watch Victory Lap
-                        </button>
-                    </div>
-                </Html>
-            )}
+            {/* Victory Tour UI Overlay - REMOVED from Scene */}
+            
+            {/* Replay Button Overlay - REMOVED from Scene */}
         </group>
     )
 }
@@ -1308,6 +1182,66 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
 export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId, timeOfDay = 'night' }) {
     const [isLocked, setIsLocked] = useState(true);
     const theme = TIME_THEMES[timeOfDay] || TIME_THEMES.night
+
+    // -- Victory Tour Logic (Lifted State)
+    const [isTouring, setIsTouring] = useState(false);
+    const [tourIndex, setTourIndex] = useState(0);
+    const [isAutomatedTour, setIsAutomatedTour] = useState(false);
+
+    const doneCount = tasks.filter(t => t.done).length;
+
+    // Start tour when summit reached
+    React.useEffect(() => {
+        if (tasks.length > 0 && doneCount === tasks.length) {
+            if (!isTouring) {
+                setIsTouring(true);
+                setTourIndex(0);
+                setIsAutomatedTour(true);
+            }
+        } else {
+            setIsTouring(false);
+            setIsAutomatedTour(false);
+        }
+    }, [doneCount, tasks.length]);
+
+    // Manual Navigation Handlers
+    const handleNext = React.useCallback(() => {
+        setIsAutomatedTour(false);
+        if (tourIndex < tasks.length - 1) {
+            setTourIndex(prev => prev + 1);
+        }
+    }, [tourIndex, tasks.length]);
+
+    const handlePrev = React.useCallback(() => {
+        setIsAutomatedTour(false);
+        if (tourIndex > 0) {
+            setTourIndex(prev => prev - 1);
+        }
+    }, [tourIndex]);
+
+    const handleExitTour = React.useCallback(() => {
+        setIsTouring(false);
+        setIsAutomatedTour(false);
+    }, []);
+
+    // Keyboard Navigation
+    React.useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (!isTouring) return;
+            if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                handleNext();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                handlePrev();
+            } else if (e.key === 'Escape') {
+                handleExitTour();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isTouring, handleNext, handlePrev, handleExitTour]);
 
     return (
         <div className="absolute inset-0 z-0" style={{ width: '100%', height: '100%' }}>
@@ -1345,6 +1279,68 @@ export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId, tim
                 )}
             </button>
 
+            {/* Victory Tour UI Overlay - MOVED OUTSIDE CANVAS */}
+            {isTouring && (
+                <div className="absolute bottom-6 right-6 z-20 flex items-center gap-4 bg-slate-900/90 p-4 rounded-2xl border border-amber-500/30 shadow-2xl backdrop-blur-md pointer-events-auto">
+                    <button
+                        onClick={handlePrev}
+                        disabled={tourIndex === 0}
+                        className="p-2 rounded-full hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent text-white transition"
+                        title="Previous Checkpoint"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
+                            <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 0 1 0 1.06L8.06 10l3.72 3.72a.75.75 0 1 1-1.06 1.06l-4.25-4.25a.75.75 0 0 1 0-1.06l4.25-4.25a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                        </svg>
+                    </button>
+
+                    <div className="flex flex-col items-center min-w-[120px]">
+                        <span className="text-amber-400 font-bold uppercase tracking-widest text-xs">Victory Tour</span>
+                        <span className="text-white font-mono text-sm">
+                            {tourIndex + 1} / {tasks.length}
+                        </span>
+                    </div>
+
+                    <button
+                        onClick={handleNext}
+                        disabled={tourIndex === tasks.length - 1}
+                        className="p-2 rounded-full hover:bg-slate-700 disabled:opacity-30 disabled:hover:bg-transparent text-white transition"
+                        title="Next Checkpoint"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
+                            <path fillRule="evenodd" d="M8.22 5.22a.75.75 0 0 1 1.06 0l4.25 4.25a.75.75 0 0 1 0 1.06l-4.25 4.25a.75.75 0 0 1-1.06-1.06L11.94 10 8.22 6.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+                        </svg>
+                    </button>
+
+                    <div className="w-px h-8 bg-slate-700 mx-2" />
+
+                    <button
+                        onClick={handleExitTour}
+                        className="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 text-xs font-bold uppercase tracking-wide transition border border-rose-500/20"
+                    >
+                        Exit
+                    </button>
+                </div>
+            )}
+
+            {/* Replay Button Overlay - MOVED OUTSIDE CANVAS */}
+            {!isTouring && tasks.length > 0 && doneCount === tasks.length && (
+                <div className="absolute bottom-6 right-6 z-20">
+                    <button
+                        onClick={() => {
+                            setIsTouring(true);
+                            setTourIndex(0);
+                            setIsAutomatedTour(true);
+                        }}
+                        className="bg-amber-400 text-slate-900 px-6 py-3 rounded-full font-bold text-sm shadow-xl hover:bg-amber-300 transition-all pointer-events-auto border border-amber-300 flex items-center gap-2 active:scale-95"
+                    >
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                            <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM9.555 7.168A1 1 0 0 0 8 8v4a1 1 0 0 0 1.555.832l3-2a1 1 0 0 0 0-1.664l-3-2Z" clipRule="evenodd" />
+                        </svg>
+                        Watch Victory Lap
+                    </button>
+                </div>
+            )}
+
             <div className="relative z-10 h-full w-full">
                 <Canvas
                     shadows
@@ -1352,7 +1348,18 @@ export default function Mountain3D({ goal, tasks, onPhotoUpdate, mountainId, tim
                     camera={{ position: [0, 2, 8], fov: 50 }}
                     gl={{ alpha: true }}
                 >
-                    <Scene tasks={tasks} goal={goal} isLocked={isLocked} mountainId={mountainId} timeOfDay={timeOfDay} />
+                    <Scene 
+                        tasks={tasks} 
+                        goal={goal} 
+                        isLocked={isLocked} 
+                        mountainId={mountainId} 
+                        timeOfDay={timeOfDay}
+                        isTouring={isTouring}
+                        tourIndex={tourIndex}
+                        isAutomatedTour={isAutomatedTour}
+                        onTourIndexUpdate={setTourIndex}
+                        onAutomatedTourEnd={() => setIsAutomatedTour(false)}
+                    />
                 </Canvas>
             </div>
         </div>
