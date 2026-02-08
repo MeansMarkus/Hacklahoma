@@ -127,12 +127,12 @@ function Staircase({ steps, doneCount }) {
     )
 }
 
-function CheckpointFlags({ steps, doneCount, tasks }) {
+function CheckpointFlags({ steps, doneCount, tasks, activeFlagIndex, onFlagHover }) {
     // Filter out only checkpoints
     const checkpoints = steps.filter(s => s.isCheckpoint);
 
-    // State to track hovered flag
-    const [hoveredIndex, setHoveredIndex] = useState(null);
+    // We use the parent's activeFlagIndex (for tour) or internal logic?
+    // Let's use the one passed from parent which combines hover and tour.
 
     return (
         <group>
@@ -147,9 +147,9 @@ function CheckpointFlags({ steps, doneCount, tasks }) {
                         key={i}
                         position={cp.position}
                         rotation={cp.rotation}
-                        onPointerOver={(e) => { e.stopPropagation(); setHoveredIndex(i); }}
-                        onPointerOut={(e) => { e.stopPropagation(); setHoveredIndex(null); }}
-                        onClick={(e) => { e.stopPropagation(); setHoveredIndex(hoveredIndex === i ? null : i); }} // Click to toggle pinned state (basic impl)
+                        onPointerOver={(e) => { e.stopPropagation(); onFlagHover(i); }}
+                        onPointerOut={(e) => { e.stopPropagation(); onFlagHover(null); }}
+                        onClick={(e) => { e.stopPropagation(); /* Optional click logic */ }}
                     >
                         {/* Move flag slightly inward so it stands on the step */}
                         <group position={[0.35, 0.25, 0]}>
@@ -159,13 +159,13 @@ function CheckpointFlags({ steps, doneCount, tasks }) {
                             </mesh>
                             <mesh position={[0.15, 0.15, 0]} rotation={[0, 0, 0]}>
                                 <boxGeometry args={[0.3, 0.2, 0.01]} />
-                                <meshStandardMaterial color={hoveredIndex === i ? "#fbbf24" : "#34d399"} /> {/* Highlight on hover */}
+                                <meshStandardMaterial color={activeFlagIndex === i ? "#fbbf24" : "#34d399"} /> {/* Highlight on hover */}
                             </mesh>
 
                             {/* Hover Tooltip / Detail View */}
-                            {hoveredIndex === i && (
+                            {activeFlagIndex === i && (
                                 <Html position={[0, 0.5, 0]} center style={{ pointerEvents: 'none' }}>
-                                    <div className="bg-slate-900/90 text-white p-3 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md w-48 pointer-events-none select-none flex flex-col items-center gap-2 transform -translate-y-full">
+                                    <div className="bg-slate-900/90 text-white p-3 rounded-lg border border-slate-700 shadow-xl backdrop-blur-md w-64 pointer-events-none select-none flex flex-col items-center gap-2 transform -translate-y-full">
                                         <div className="text-xs font-bold text-center text-emerald-400 uppercase tracking-widest mb-1">
                                             Checkpoint #{cp.checkpointIndex + 1}
                                         </div>
@@ -173,8 +173,8 @@ function CheckpointFlags({ steps, doneCount, tasks }) {
                                             {task ? task.text : "Unknown Task"}
                                         </div>
                                         {task && task.photo && (
-                                            <div className="mt-2 w-full aspect-video bg-black rounded overflow-hidden border border-slate-600">
-                                                <img src={task.photo} alt="Task Proof" className="w-full h-full object-cover" />
+                                            <div className="mt-2 w-full flex justify-center rounded overflow-hidden">
+                                                <img src={task.photo} alt="Task Proof" className="max-w-full max-h-40 object-contain rounded" />
                                             </div>
                                         )}
                                         {task && !task.photo && (
@@ -467,20 +467,80 @@ function Scene({ tasks, goal, isLocked }) {
     const controlsRef = useRef()
     const steps = useStaircasePath(tasks);
 
-    // Determine climber position
+    // -- State
+    const [hoveredFlagIndex, setHoveredFlagIndex] = useState(null);
+    const [tourOverrideTarget, setTourOverrideTarget] = useState(null);
+    const [isTouring, setIsTouring] = useState(false);
+
+    // Determine climber position (normal logic)
     const doneCount = tasks.filter(t => t.done).length;
 
-    let targetStepIndex = 0;
-
+    // Calculate normal target
+    let normalTargetStepIndex = 0;
     if (doneCount > 0) {
-        // Find the step that corresponds to limiting checkpoint
         const checkpointStep = steps.find(s => s.checkpointIndex === doneCount - 1);
-        if (checkpointStep) {
-            targetStepIndex = checkpointStep.overallIndex;
-        } else {
-            targetStepIndex = steps.length - 1;
-        }
+        if (checkpointStep) normalTargetStepIndex = checkpointStep.overallIndex;
+        else normalTargetStepIndex = steps.length - 1;
     }
+
+    // Actual target is override (during tour) or normal
+    const targetStepIndex = isTouring && tourOverrideTarget !== null ? tourOverrideTarget : normalTargetStepIndex;
+
+    // -- Victory Tour Logic
+    const hasStartedTourRef = useRef(false);
+
+    // Reset tour ref if tasks change drastically or reset
+    React.useEffect(() => {
+        if (doneCount < tasks.length) {
+            hasStartedTourRef.current = false;
+            setIsTouring(false);
+            setTourOverrideTarget(null);
+        }
+    }, [doneCount, tasks.length]);
+
+    React.useEffect(() => {
+        const runTour = async () => {
+            if (tasks.length > 0 && doneCount === tasks.length && !hasStartedTourRef.current) {
+                hasStartedTourRef.current = true;
+
+                // Allow a moment for the final step to register visually
+                await new Promise(r => setTimeout(r, 1000));
+
+                setIsTouring(true);
+
+                // Go to start? Or just visit each. Let's visit each from bottom up or top down?
+                // User said "go back through the mountain". Maybe from start to finish?
+                // Let's go 0 -> N.
+
+                for (let i = 0; i < tasks.length; i++) {
+                    const step = steps.find(s => s.checkpointIndex === i);
+                    if (step) {
+                        // Move to task
+                        setTourOverrideTarget(step.overallIndex);
+
+                        // Wait for travel (approximate)
+                        // Distance logic could be better, but fixed wait is safer for now
+                        await new Promise(r => setTimeout(r, 1500));
+
+                        // Show popup
+                        setHoveredFlagIndex(i);
+
+                        // Look at info
+                        await new Promise(r => setTimeout(r, 2500));
+
+                        // Hide popup
+                        setHoveredFlagIndex(null);
+                    }
+                }
+
+                // End Tour
+                setIsTouring(false);
+                setTourOverrideTarget(null); // Will snap back to summit (normalTarget)
+            }
+        };
+
+        runTour();
+    }, [doneCount, tasks.length, steps]);
 
     const currentStep = steps[targetStepIndex] || steps[0];
 
@@ -493,9 +553,15 @@ function Scene({ tasks, goal, isLocked }) {
             <MountainMesh />
 
             <Staircase steps={steps} doneCount={doneCount} />
-            <CheckpointFlags steps={steps} doneCount={doneCount} tasks={tasks} />
+            <CheckpointFlags
+                steps={steps}
+                doneCount={doneCount}
+                tasks={tasks}
+                activeFlagIndex={hoveredFlagIndex}
+                onFlagHover={setHoveredFlagIndex}
+            />
 
-            <Climber steps={steps} targetIndex={targetStepIndex} controlsRef={controlsRef} isLocked={isLocked} />
+            <Climber steps={steps} targetIndex={targetStepIndex} controlsRef={controlsRef} isLocked={isLocked || isTouring} />
 
             <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
                 <Billboard
