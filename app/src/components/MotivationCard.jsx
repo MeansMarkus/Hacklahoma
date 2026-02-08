@@ -11,13 +11,12 @@ export default function MotivationCard({ goal, tasks, progress }) {
 
   return (
     <div
-      className={`rounded-xl border backdrop-blur-md p-5 ${
-        isSummitReached
-          ? 'bg-success/20 border-success/40'
-          : 'bg-accent/10 border-accent/25 border-sky-mid/90'
-      }`}
+      className={`rounded-2xl border backdrop-blur-md px-4 py-2 flex items-center min-h-[4rem] max-w-sm ${isSummitReached
+          ? 'bg-emerald-500/10 border-emerald-500/30'
+          : 'bg-slate-900/80 border-slate-700/50'
+        }`}
     >
-      <p className="text-[0.95rem] font-medium text-slate-100 leading-relaxed">{text}</p>
+      <p className="text-xs font-semibold text-slate-100 leading-snug">{text}</p>
     </div>
   )
 }
