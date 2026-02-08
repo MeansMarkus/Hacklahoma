@@ -463,14 +463,8 @@ export default function App() {
     const count = Math.min(MAX_TASK_COUNT, Math.max(MIN_TASK_COUNT, taskCount))
     const promptPreference = taskGenerationPrompt.trim()
 
-    // Construct guidance strings
     const promptGuidance = promptPreference
-      ? `User preference for task style: ${promptPreference}\nGenerated tasks MUST follow this preference.`
-      : ''
-
-    // Add specific instruction for "project" related prompts
-    const projectInstruction = promptPreference.toLowerCase().includes('project')
-      ? 'Include specific deliverables (e.g. "draft README", "build X component") if relevant.'
+      ? `Focus area: ${promptPreference}`
       : ''
 
     try {
@@ -492,12 +486,11 @@ export default function App() {
 ${promptGuidance}
 Generate exactly ${count} tasks.
 Constraints:
-Tasks should be actionable, specific, and small (30-120 minutes).
-${projectInstruction}
+Tasks should be actionable, specific, and small (30-60 minutes).
 Start each task with a verb.
 No duplicates.
 Keep each task text under 70 characters.
-Order tasks from first-to-do to last-to-do.
+Order tasks from easiest (base) to hardest (summit).
 Output schema exactly:
 { "tasks": [ { "text": "..." } ] }`,
             },
