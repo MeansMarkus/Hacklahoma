@@ -14,9 +14,9 @@ import TaskList from './components/TaskList'
 import CompletedTaskList from './components/CompletedTaskList'
 import MotivationCard from './components/MotivationCard'
 import SummitCelebration from './components/SummitCelebration'
-import LoginScreen from './components/LoginScreen'
 import NavigationArrows from './components/NavigationArrows'
 import MountainListTab from './components/MountainListTab'
+import UserAuthDropdown from './components/UserAuthDropdown'
 import {
   STORAGE_KEY,
   STORAGE_VERSION,
@@ -569,44 +569,11 @@ Output schema exactly:
           timeOfDay={timeOfDay}
         />
 
-        {showLogin ? (
-          <LoginScreen
-            email={authEmail}
-            password={authPassword}
-            onEmailChange={setAuthEmail}
-            onPasswordChange={setAuthPassword}
-            onSubmit={handleSignIn}
-            onSignUp={handleSignUp}
-            error={authError}
-            busy={authBusy}
-          />
-        ) : (
           <>
             {/* Header / Top Navigation */}
             <header className="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-start pointer-events-none">
               <div className="pointer-events-auto flex flex-col gap-3">
-                {!firebaseReady ? (
-                  <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl w-72">
-                    <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Local mode</div>
-                    <p className="text-xs text-amber-200 mt-2">
-                      Firebase env vars missing. Add the values in .env to enable sign-in.
-                    </p>
-                  </div>
-                ) : user ? (
-                  <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl w-72">
-                    <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Signed in</div>
-                    <div className="mt-2 flex flex-col gap-2">
-                      <div className="text-sm text-slate-200 truncate">{user.email}</div>
-                      <button
-                        type="button"
-                        onClick={handleSignOut}
-                        className="px-3 py-2 rounded-lg bg-slate-800 text-slate-100 hover:bg-slate-700 transition-colors"
-                      >
-                        Sign out
-                      </button>
-                    </div>
-                  </div>
-                ) : null}
+
 
                 <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl flex w-72 flex-col gap-1">
                   <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Altitude</div>
@@ -651,17 +618,33 @@ Output schema exactly:
                 </div>
               </div>
 
-              <button
-                onClick={() => setShowTasks((prev) => !prev)}
-                className="pointer-events-auto bg-slate-800/90 text-white p-3 rounded-full hover:bg-slate-700 transition-colors shadow-lg border border-slate-600 backdrop-blur-sm group"
-                title="Toggle Tasks"
-                id="toggle-tasks-btn"
-              >
-                {/* Hamburger Icon */}
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 group-hover:scale-110 transition-transform">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-                </svg>
-              </button>
+              <div className="pointer-events-auto flex gap-4 items-center">
+                {firebaseReady && (
+                  <UserAuthDropdown
+                    user={user}
+                    email={authEmail}
+                    password={authPassword}
+                    onEmailChange={setAuthEmail}
+                    onPasswordChange={setAuthPassword}
+                    onSubmit={handleSignIn}
+                    onSignUp={handleSignUp}
+                    onSignOut={handleSignOut}
+                    error={authError}
+                    busy={authBusy}
+                  />
+                )}
+                <button
+                  onClick={() => setShowTasks((prev) => !prev)}
+                  className="bg-slate-800/90 text-white p-3 rounded-full hover:bg-slate-700 transition-colors shadow-lg border border-slate-600 backdrop-blur-sm group"
+                  title="Toggle Tasks"
+                  id="toggle-tasks-btn"
+                >
+                  {/* Hamburger Icon */}
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 group-hover:scale-110 transition-transform">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
+                  </svg>
+                </button>
+              </div>
             </header>
 
             {/* New Navigation Features */}
@@ -740,7 +723,6 @@ Output schema exactly:
               onDone={() => setShowCelebration(false)}
             />
           </>
-        )}
       </div>
     </>
   )
