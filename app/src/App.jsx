@@ -264,7 +264,7 @@ Output schema exactly:
 
         {/* Task Dropdown / Overlay */}
         <div
-          className={`fixed top-20 right-4 w-[50rem] max-w-[calc(100vw-2rem)] z-50 transition-all duration-300 transform origin-top-right ${showTasks ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+          className={`fixed top-20 right-4 w-[25rem] max-w-[calc(100vw-2rem)] z-50 transition-all duration-300 transform origin-top-right ${showTasks ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
             }`}
         >
           <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6 max-h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar">
@@ -279,8 +279,22 @@ Output schema exactly:
               </button>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Left Column: Ledges (Active Tasks) */}
+            <div className="flex flex-col gap-6">
+
+              {/* Top: Set Your Summit (Goal) */}
+              <GoalCard
+                currentGoal={goal}
+                onSetGoal={handleSetGoal}
+                onGenerateTasks={handleGenerateTasks}
+                taskCount={taskCount}
+                onTaskCountChange={handleTaskCountChange}
+                minTaskCount={MIN_TASK_COUNT}
+                maxTaskCount={MAX_TASK_COUNT}
+                isGenerating={isGenerating}
+                generateError={generateError}
+              />
+
+              {/* Middle: Ledges (Active Tasks) */}
               <div className="flex flex-col gap-4">
                 <TaskList
                   tasks={tasks.filter(t => !t.done).slice(0, 3)}
@@ -294,20 +308,8 @@ Output schema exactly:
                 </div>
               </div>
 
-              {/* Right Column: Goal & History */}
+              {/* Bottom: History & Motivation */}
               <div className="flex flex-col gap-4">
-                <GoalCard
-                  currentGoal={goal}
-                  onSetGoal={handleSetGoal}
-                  onGenerateTasks={handleGenerateTasks}
-                  taskCount={taskCount}
-                  onTaskCountChange={handleTaskCountChange}
-                  minTaskCount={MIN_TASK_COUNT}
-                  maxTaskCount={MAX_TASK_COUNT}
-                  isGenerating={isGenerating}
-                  generateError={generateError}
-                />
-
                 <CompletedTaskList
                   tasks={tasks.filter(t => t.done)}
                   onToggle={handleToggleTask}
