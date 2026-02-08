@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 // import Sky from './components/Sky' // Removed
 import Mountain3D from './components/Mountain3D'
 import GoalCard from './components/GoalCard'
@@ -6,7 +6,6 @@ import TaskList from './components/TaskList'
 import CompletedTaskList from './components/CompletedTaskList'
 import MotivationCard from './components/MotivationCard'
 import SummitCelebration from './components/SummitCelebration'
-import CelebrationBurst from './components/CelebrationBurst'
 import {
   STORAGE_KEY,
   MAX_ALTITUDE,
@@ -76,11 +75,6 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false)
   const [generateError, setGenerateError] = useState('')
   const [showTasks, setShowTasks] = useState(true)
-  const [celebrationBursts, setCelebrationBursts] = useState([])
-  const celebrationIdRef = useRef(0)
-  const prevDoneCountRef = useRef(initialState.tasks.filter((t) => t.done).length)
-  const hasMountedRef = useRef(false)
-  const climberScreenRef = useRef(null)
 
   useEffect(() => {
     saveState(goal, tasks)
@@ -121,29 +115,6 @@ export default function App() {
     }
     if (!isSummitReached) setCelebrated(false)
   }, [isSummitReached, celebrated])
-
-  useEffect(() => {
-    if (showCelebration) {
-      addCelebration('summit')
-    }
-  }, [showCelebration, addCelebration])
-
-  useEffect(() => {
-    const doneCount = tasks.filter((t) => t.done).length
-    if (!hasMountedRef.current) {
-      hasMountedRef.current = true
-      prevDoneCountRef.current = doneCount
-      return
-    }
-
-    const diff = doneCount - prevDoneCountRef.current
-    if (diff > 0) {
-      for (let i = 0; i < diff; i += 1) {
-        addCelebration('task')
-      }
-    }
-    prevDoneCountRef.current = doneCount
-  }, [tasks, addCelebration])
 
   const handleSetGoal = useCallback((text) => {
     // If we've reached the summit (all tasks done), setting a new goal implies a new adventure.
@@ -286,15 +257,7 @@ Output schema exactly:
     <>
       <div className={`relative min-h-screen overflow-hidden ${isSummitReached ? 'summit-reached' : ''}`}>
         {/* Fullscreen 3D Mountain Background */}
-        <Mountain3D
-          goal={goal}
-          tasks={tasks}
-          onPhotoUpdate={handlePhotoUpdate}
-          isSummitReached={isSummitReached}
-          onClimberScreenPosition={(pos) => {
-            climberScreenRef.current = pos
-          }}
-        />
+        <Mountain3D goal={goal} tasks={tasks} onPhotoUpdate={handlePhotoUpdate} />
 
         {/* Header / Top Navigation */}
         <header className="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-start pointer-events-none">
@@ -325,14 +288,14 @@ Output schema exactly:
 
         {/* Task Dropdown / Overlay */}
         <div
-          className={`fixed top-20 right-4 w-[25rem] max-w-[calc(100vw-2rem)] z-50 transition-all duration-300 transform origin-top-right ${showTasks ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+          className={`fixed top-20 right-4 w-[50rem] max-w-[calc(100vw-2rem)] z-50 transition-all duration-300 transform origin-top-right ${showTasks ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
             }`}
         >
-          <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-3 max-h-[calc(100vh-120px)] overflow-hidden">
+          <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6 max-h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar">
 
             {/* Header with Close Button */}
-            <div className="flex items-center justify-between pb-2 mb-2 border-b border-slate-800/80">
-              <h2 className="text-base font-bold text-slate-100">Expedition Log</h2>
+            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800/80">
+              <h2 className="text-xl font-bold text-slate-100">Expedition Log</h2>
               <button onClick={() => setShowTasks(false)} className="text-slate-400 hover:text-white">
                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
                   <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
@@ -340,22 +303,8 @@ Output schema exactly:
               </button>
             </div>
 
-            <div className="flex flex-col gap-6">
-
-              {/* Top: Set Your Summit (Goal) */}
-              <GoalCard
-                currentGoal={goal}
-                onSetGoal={handleSetGoal}
-                onGenerateTasks={handleGenerateTasks}
-                taskCount={taskCount}
-                onTaskCountChange={handleTaskCountChange}
-                minTaskCount={MIN_TASK_COUNT}
-                maxTaskCount={MAX_TASK_COUNT}
-                isGenerating={isGenerating}
-                generateError={generateError}
-              />
-
-              {/* Middle: Ledges (Active Tasks) */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: Ledges (Active Tasks) */}
               <div className="flex flex-col gap-4">
                 <TaskList
                   tasks={tasks.filter(t => !t.done).slice(0, 3)}
@@ -364,13 +313,25 @@ Output schema exactly:
                   onAdd={handleAddTask}
                   onPhotoUpdate={handlePhotoUpdate}
                 />
-                <div className="text-[0.7rem] text-center text-slate-500 italic">
+                <div className="text-xs text-center text-slate-500 italic">
                   Showing top 3 active ledges
                 </div>
               </div>
 
-              {/* Bottom: History & Motivation */}
+              {/* Right Column: Goal & History */}
               <div className="flex flex-col gap-4">
+                <GoalCard
+                  currentGoal={goal}
+                  onSetGoal={handleSetGoal}
+                  onGenerateTasks={handleGenerateTasks}
+                  taskCount={taskCount}
+                  onTaskCountChange={handleTaskCountChange}
+                  minTaskCount={MIN_TASK_COUNT}
+                  maxTaskCount={MAX_TASK_COUNT}
+                  isGenerating={isGenerating}
+                  generateError={generateError}
+                />
+
                 <CompletedTaskList
                   tasks={tasks.filter(t => t.done)}
                   onToggle={handleToggleTask}

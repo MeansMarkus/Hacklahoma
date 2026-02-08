@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { OrbitControls, Stars, Float, Text, Outlines } from '@react-three/drei'
+import { OrbitControls, Stars, Float, Text, Outlines, Billboard } from '@react-three/drei'
 import * as THREE from 'three'
 
 // -- Constants
@@ -157,10 +157,12 @@ function CheckpointFlags({ steps, doneCount }) {
     )
 }
 
-// Animated Climber Component
+// Animated Climber Component - Detailed Penguin
 function Climber({ steps, targetIndex }) {
     const groupRef = React.useRef();
     const bodyRef = React.useRef();
+    const leftWingRef = React.useRef();
+    const rightWingRef = React.useRef();
 
     // Track current position as a float index along the steps array
     const currentIndex = React.useRef(0);
@@ -213,38 +215,8 @@ function Climber({ steps, targetIndex }) {
             groupRef.current.rotation.set(0, currentRotY, 0);
         }
 
-        if (groupRef.current && onScreenPosition) {
-            const worldPos = new THREE.Vector3();
-            groupRef.current.getWorldPosition(worldPos);
-            worldPos.project(camera);
-
-            const x = (worldPos.x * 0.5 + 0.5) * size.width;
-            const y = (-worldPos.y * 0.5 + 0.5) * size.height;
-
-            const now = state.clock.elapsedTime;
-            const dx = Math.abs(x - lastScreenRef.current.x);
-            const dy = Math.abs(y - lastScreenRef.current.y);
-
-            if (dx > 2 || dy > 2 || now - lastEmitRef.current > 0.2) {
-                lastScreenRef.current = { x, y };
-                lastEmitRef.current = now;
-                onScreenPosition({ x, y });
-            }
-        }
-
-        // Waddle / Idle / Summit dance animation
-        if (isSummitReached) {
-            const time = state.clock.elapsedTime;
-            const spin = Math.sin(time * 4) * 0.35;
-            const sway = Math.sin(time * 8) * 0.18;
-            const bounce = Math.abs(Math.sin(time * 6)) * 0.12 + 0.03;
-
-            if (bodyRef.current) {
-                bodyRef.current.rotation.z = sway;
-                bodyRef.current.rotation.y = spin;
-                bodyRef.current.position.y = bounce;
-            }
-        } else if (Math.abs(diff) > 0.05) {
+        // Waddle Animation
+        if (Math.abs(diff) > 0.05) {
             // Walking
             const time = state.clock.elapsedTime * 15;
             const waddle = Math.sin(time) * 0.1;
@@ -260,7 +232,6 @@ function Climber({ steps, targetIndex }) {
             const breathe = Math.sin(time) * 0.01;
             if (bodyRef.current) {
                 bodyRef.current.rotation.z = THREE.MathUtils.lerp(bodyRef.current.rotation.z, 0, 0.1);
-                bodyRef.current.rotation.y = THREE.MathUtils.lerp(bodyRef.current.rotation.y, 0, 0.1);
                 bodyRef.current.position.y = THREE.MathUtils.lerp(bodyRef.current.position.y, breathe, 0.1);
             }
         }
@@ -429,7 +400,7 @@ function useStaircasePath(tasks) {
     }, [tasks.length]);
 }
 
-function Scene({ tasks, goal, onClimberScreenPosition, isSummitReached }) {
+function Scene({ tasks, goal }) {
     const steps = useStaircasePath(tasks);
 
     // Determine climber position
@@ -460,12 +431,7 @@ function Scene({ tasks, goal, onClimberScreenPosition, isSummitReached }) {
             <Staircase steps={steps} doneCount={doneCount} />
             <CheckpointFlags steps={steps} doneCount={doneCount} />
 
-            <Climber
-                steps={steps}
-                targetIndex={targetStepIndex}
-                onScreenPosition={onClimberScreenPosition}
-                isSummitReached={isSummitReached}
-            />
+            <Climber steps={steps} targetIndex={targetStepIndex} />
 
             <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
                 <Billboard
@@ -500,17 +466,12 @@ function Scene({ tasks, goal, onClimberScreenPosition, isSummitReached }) {
     )
 }
 
-export default function Mountain3D({ goal, tasks, onPhotoUpdate, onClimberScreenPosition, isSummitReached }) {
+export default function Mountain3D({ goal, tasks, onPhotoUpdate }) {
     return (
         <div className="absolute inset-0 z-0" style={{ width: '100%', height: '100%', background: '#0a0a15' }}>
             <Canvas shadows dpr={[1, 2]} camera={{ position: [0, 2, 8], fov: 50 }}>
                 <color attach="background" args={['#0f172a']} />
-                <Scene
-                    tasks={tasks}
-                    goal={goal}
-                    onClimberScreenPosition={onClimberScreenPosition}
-                    isSummitReached={isSummitReached}
-                />
+                <Scene tasks={tasks} goal={goal} />
             </Canvas>
         </div>
     )
