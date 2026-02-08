@@ -489,16 +489,21 @@ function CheckpointFlags({ steps, doneCount, tasks, activeFlagIndex, onFlagHover
 }
 
 // Animated Climber Component - Detailed Penguin
-function Climber({ steps, targetIndex, controlsRef, isLocked, light, suspendCamera, origin }) {
+function Climber({ steps, targetIndex, controlsRef, isLocked, light, suspendCamera, origin, isTouring }) {
     const groupRef = React.useRef();
     const bodyRef = React.useRef();
     const leftWingRef = React.useRef();
     const rightWingRef = React.useRef();
 
     // Track current position as a float index along the steps array
-    // Initialize to targetIndex so we start at the right spot (teleport), 
-    // instead of walking from 0 every time.
     const currentIndex = React.useRef(targetIndex);
+
+    // If we jump from near summit to bottom (e.g. tour start), snap current index
+    React.useEffect(() => {
+        if (isTouring && targetIndex === 0 && currentIndex.current > steps.length * 0.5) {
+            currentIndex.current = 0;
+        }
+    }, [isTouring, targetIndex, steps.length]);
 
     useFrame((state, delta) => {
         if (!steps || steps.length === 0) return;
@@ -557,18 +562,15 @@ function Climber({ steps, targetIndex, controlsRef, isLocked, light, suspendCame
                 );
                 controlsRef.current.target.lerp(lookAtPos, 0.1);
 
-                // Orbital Camera Movement
-                // Calculate angle of penguin relative to center (0,0)
+                // Orbital Camera Movement:
+                // Strictly follow the penguin's orbital path.
                 const angle = Math.atan2(currentPos.x, currentPos.z);
 
-                // Desired camera position: offset by radius + distance, at the same angle
                 const dist = 8; // Distance from center
-                const heightOffset = 2; // Height relative to penguin
+                const heightOffset = 2.0; // Height relative to penguin
 
-                // We want the camera to be "behind" and "outward" or just "outward"
-                // Let's place it at the same angle to look AT the mountain face the penguin is on
-                const camX = Math.sin(angle) * dist;
-                const camZ = Math.cos(angle) * dist;
+                const camX = Math.sin(angle) * dist + (origin?.x || 0);
+                const camZ = Math.cos(angle) * dist + (origin?.z || 0);
                 const camY = currentPos.y + heightOffset;
 
                 const desiredCamPos = new THREE.Vector3(camX, camY, camZ);
@@ -978,6 +980,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
     const [hoveredFlagIndex, setHoveredFlagIndex] = useState(null);
     const [tourOverrideTarget, setTourOverrideTarget] = useState(null);
     const [isTouring, setIsTouring] = useState(false);
+    const [isAutomatedTour, setIsAutomatedTour] = useState(false);
 
     // Determine climber position (normal logic)
     const doneCount = tasks.filter(t => t.done).length;
@@ -1002,9 +1005,12 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
             if (!isTouring) {
                 setIsTouring(true);
                 setTourIndex(0);
+                setTourOverrideTarget(0); // Snap to bottom for start
+                setIsAutomatedTour(true);
             }
         } else {
             setIsTouring(false);
+            setIsAutomatedTour(false);
         }
     }, [doneCount, tasks.length]);
 
@@ -1024,8 +1030,9 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
         }
     }, [isTouring, tourIndex, steps]);
 
-    // Manual Navigation Handlers
+    // Manual Navigation Handlers - these disable auto-tour
     const handleNext = React.useCallback(() => {
+        setIsAutomatedTour(false);
         if (tourIndex < tasks.length - 1) {
             setHoveredFlagIndex(null); // Hide briefly
             setTourIndex(prev => prev + 1);
@@ -1033,6 +1040,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
     }, [tourIndex, tasks.length]);
 
     const handlePrev = React.useCallback(() => {
+        setIsAutomatedTour(false);
         if (tourIndex > 0) {
             setHoveredFlagIndex(null);
             setTourIndex(prev => prev - 1);
@@ -1041,6 +1049,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
 
     const handleExitTour = React.useCallback(() => {
         setIsTouring(false);
+        setIsAutomatedTour(false);
     }, []);
 
     // Keyboard Navigation
@@ -1064,7 +1073,29 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
 
     const currentStep = steps[targetStepIndex] || steps[0];
 
-    useFrame((_, delta) => {
+    useFrame((state, delta) => {
+        // Automated ascent logic
+        if (isTouring && isAutomatedTour && !cameraTransitionRef.current.active) {
+            // Calculate next target first to ensure sync
+            const current = tourOverrideTarget === null ? 0 : tourOverrideTarget;
+            const speed = steps.length / 18; // covers the whole mountain in ~18 seconds
+            let next = current + delta * speed;
+
+            if (next >= steps.length - 1) {
+                next = steps.length - 1;
+                setIsAutomatedTour(false);
+            }
+
+            setTourOverrideTarget(next);
+
+            // Update tourIndex (checkpoint sync) as we pass them
+            const floorIdx = Math.floor(next);
+            const currentStep = steps[floorIdx];
+            if (currentStep && currentStep.isCheckpoint && currentStep.checkpointIndex !== tourIndex) {
+                setTourIndex(currentStep.checkpointIndex);
+            }
+        }
+
         if (cameraTransitionRef.current.active && controlsRef.current && camera) {
             const tr = cameraTransitionRef.current
             tr.t = Math.min(1, tr.t + delta / tr.duration)
@@ -1166,6 +1197,7 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
                     isLocked={isLocked || isTouring}
                     light={theme.climberLight}
                     origin={mountainOrigin}
+                    isTouring={isTouring}
                 />
 
                 <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
@@ -1201,11 +1233,11 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
                 autoRotateSpeed={0.5}
             />
 
-            {/* Victory Tour UI */}
+            {/* Victory Tour UI Overlay */}
             {isTouring && (
                 <Html fullscreen style={{ pointerEvents: 'none' }}>
-                    <div className="absolute inset-0 flex items-end justify-center pb-12 pointer-events-none">
-                        <div className="flex items-center gap-4 bg-slate-900/90 p-4 rounded-2xl border border-amber-500/30 shadow-2xl backdrop-blur-md pointer-events-auto">
+                    <div className="absolute inset-0 flex items-end justify-end p-6 pointer-events-none">
+                        <div className="flex items-center gap-4 bg-slate-900/90 p-4 rounded-2xl border border-amber-500/30 shadow-2xl backdrop-blur-md pointer-events-auto mb-4 mr-4">
                             <button
                                 onClick={handlePrev}
                                 disabled={tourIndex === 0}
@@ -1239,11 +1271,33 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
 
                             <button
                                 onClick={handleExitTour}
-                                className="px-3 py-1.5 rounded-lg bg-red-500/20 text-red-400 hover:bg-red-500/30 text-xs font-bold uppercase tracking-wide transition"
+                                className="px-3 py-1.5 rounded-lg bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 text-xs font-bold uppercase tracking-wide transition border border-rose-500/20"
                             >
                                 Exit
                             </button>
                         </div>
+                    </div>
+                </Html>
+            )}
+
+            {/* Replay Button Overlay */}
+            {!isTouring && tasks.length > 0 && doneCount === tasks.length && (
+                <Html fullscreen style={{ pointerEvents: 'none' }}>
+                    <div className="absolute inset-0 flex items-end justify-end p-6 pointer-events-none">
+                        <button
+                            onClick={() => {
+                                setIsTouring(true);
+                                setTourIndex(0);
+                                setTourOverrideTarget(0);
+                                setIsAutomatedTour(true);
+                            }}
+                            className="bg-amber-400 text-slate-900 px-6 py-3 rounded-full font-bold text-sm shadow-xl hover:bg-amber-300 transition-all pointer-events-auto border border-amber-300 flex items-center gap-2 active:scale-95 mb-4 mr-4"
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM9.555 7.168A1 1 0 0 0 8 8v4a1 1 0 0 0 1.555.832l3-2a1 1 0 0 0 0-1.664l-3-2Z" clipRule="evenodd" />
+                            </svg>
+                            Watch Victory Lap
+                        </button>
                     </div>
                 </Html>
             )}
