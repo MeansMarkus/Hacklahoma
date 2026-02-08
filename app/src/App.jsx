@@ -15,6 +15,7 @@ import TaskList from './components/TaskList'
 import CompletedTaskList from './components/CompletedTaskList'
 import MotivationCard from './components/MotivationCard'
 import SummitCelebration from './components/SummitCelebration'
+import LoginScreen from './components/LoginScreen'
 import {
   STORAGE_KEY,
   MAX_ALTITUDE,
@@ -176,6 +177,7 @@ export default function App() {
   const progress = getProgress(tasks)
   const altitude = getAltitude(tasks)
   const isSummitReached = tasks.length > 0 && progress === 100
+  const showLogin = firebaseReady && !user
 
   useEffect(() => {
     if (isSummitReached && !celebrated) {
@@ -393,153 +395,136 @@ Output schema exactly:
         {/* Fullscreen 3D Mountain Background */}
         <Mountain3D goal={goal} tasks={tasks} onPhotoUpdate={handlePhotoUpdate} />
 
-        {/* Header / Top Navigation */}
-        <header className="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-start pointer-events-none">
-          <div className="pointer-events-auto flex flex-col gap-3">
-            <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl w-72">
-              <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Account</div>
-              {!firebaseReady ? (
-                <p className="text-xs text-amber-200 mt-2">
-                  Firebase env vars missing. Add the values in .env to enable sign-in.
-                </p>
-              ) : user ? (
-                <div className="mt-2 flex flex-col gap-2">
-                  <div className="text-sm text-slate-200 truncate">Signed in as {user.email}</div>
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="px-3 py-2 rounded-lg bg-slate-800 text-slate-100 hover:bg-slate-700 transition-colors"
-                  >
-                    Sign out
-                  </button>
-                </div>
-              ) : (
-                <form onSubmit={handleSignIn} className="mt-2 flex flex-col gap-2">
-                  <input
-                    type="email"
-                    value={authEmail}
-                    onChange={(event) => setAuthEmail(event.target.value)}
-                    placeholder="Email"
-                    className="px-3 py-2 rounded-lg border border-slate-700/70 bg-slate-900/70 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
-                  />
-                  <input
-                    type="password"
-                    value={authPassword}
-                    onChange={(event) => setAuthPassword(event.target.value)}
-                    placeholder="Password"
-                    className="px-3 py-2 rounded-lg border border-slate-700/70 bg-slate-900/70 text-slate-100 placeholder-slate-500 focus:outline-none focus:border-cyan-400"
-                  />
-                  <div className="flex gap-2">
-                    <button
-                      type="submit"
-                      disabled={authBusy}
-                      className="flex-1 px-3 py-2 rounded-lg bg-cyan-500/90 text-slate-900 font-semibold hover:bg-cyan-400 disabled:opacity-60"
-                    >
-                      Sign in
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleSignUp}
-                      disabled={authBusy}
-                      className="flex-1 px-3 py-2 rounded-lg bg-slate-800 text-slate-100 hover:bg-slate-700 disabled:opacity-60"
-                    >
-                      Create
-                    </button>
+        {showLogin ? (
+          <LoginScreen
+            email={authEmail}
+            password={authPassword}
+            onEmailChange={setAuthEmail}
+            onPasswordChange={setAuthPassword}
+            onSubmit={handleSignIn}
+            onSignUp={handleSignUp}
+            error={authError}
+            busy={authBusy}
+          />
+        ) : (
+          <>
+            {/* Header / Top Navigation */}
+            <header className="fixed top-0 left-0 right-0 z-40 p-4 flex justify-between items-start pointer-events-none">
+              <div className="pointer-events-auto flex flex-col gap-3">
+                {!firebaseReady ? (
+                  <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl w-72">
+                    <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Local mode</div>
+                    <p className="text-xs text-amber-200 mt-2">
+                      Firebase env vars missing. Add the values in .env to enable sign-in.
+                    </p>
                   </div>
-                  {authError ? (
-                    <p className="text-xs text-rose-300">{authError}</p>
-                  ) : null}
-                </form>
-              )}
-            </div>
-            <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl inline-flex flex-col gap-1">
-              <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Altitude</div>
-              <div className="text-2xl font-mono text-cyan-400">{altitude}m</div>
-              <div className="w-32 h-1.5 bg-slate-800 rounded-full mt-1 overflow-hidden">
-                <div
-                  className="h-full bg-cyan-500 transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
+                ) : user ? (
+                  <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl w-72">
+                    <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Signed in</div>
+                    <div className="mt-2 flex flex-col gap-2">
+                      <div className="text-sm text-slate-200 truncate">{user.email}</div>
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="px-3 py-2 rounded-lg bg-slate-800 text-slate-100 hover:bg-slate-700 transition-colors"
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                <div className="bg-slate-900/80 backdrop-blur-md p-3 rounded-2xl border border-slate-700/50 shadow-xl inline-flex flex-col gap-1">
+                  <div className="text-xs text-slate-400 font-bold tracking-wider uppercase">Altitude</div>
+                  <div className="text-2xl font-mono text-cyan-400">{altitude}m</div>
+                  <div className="w-32 h-1.5 bg-slate-800 rounded-full mt-1 overflow-hidden">
+                    <div
+                      className="h-full bg-cyan-500 transition-all duration-500"
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
 
-          <button
-            onClick={() => setShowTasks((prev) => !prev)}
-            className="pointer-events-auto bg-slate-800/90 text-white p-3 rounded-full hover:bg-slate-700 transition-colors shadow-lg border border-slate-600 backdrop-blur-sm group"
-            title="Toggle Tasks"
-          >
-            {/* Hamburger Icon */}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 group-hover:scale-110 transition-transform">
-              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
-            </svg>
-          </button>
-        </header>
-
-        {/* Task Dropdown / Overlay */}
-        <div
-          className={`fixed top-20 right-4 w-[25rem] max-w-[calc(100vw-2rem)] z-50 transition-all duration-300 transform origin-top-right ${showTasks ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
-            }`}
-        >
-          <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6 max-h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar">
-
-            {/* Header with Close Button */}
-            <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800/80">
-              <h2 className="text-xl font-bold text-slate-100">Expedition Log</h2>
-              <button onClick={() => setShowTasks(false)} className="text-slate-400 hover:text-white">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
-                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+              <button
+                onClick={() => setShowTasks((prev) => !prev)}
+                className="pointer-events-auto bg-slate-800/90 text-white p-3 rounded-full hover:bg-slate-700 transition-colors shadow-lg border border-slate-600 backdrop-blur-sm group"
+                title="Toggle Tasks"
+              >
+                {/* Hamburger Icon */}
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className="w-6 h-6 group-hover:scale-110 transition-transform">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                 </svg>
               </button>
-            </div>
+            </header>
 
-            <div className="flex flex-col gap-6">
+            {/* Task Dropdown / Overlay */}
+            <div
+              className={`fixed top-20 right-4 w-[25rem] max-w-[calc(100vw-2rem)] z-50 transition-all duration-300 transform origin-top-right ${showTasks ? 'scale-100 opacity-100' : 'scale-95 opacity-0 pointer-events-none'
+                }`}
+            >
+              <div className="bg-slate-900/95 backdrop-blur-xl border border-slate-700/50 rounded-2xl shadow-2xl p-6 max-h-[calc(100vh-140px)] overflow-y-auto custom-scrollbar">
 
-              {/* Top: Set Your Summit (Goal) */}
-              <GoalCard
-                currentGoal={goal}
-                onSetGoal={handleSetGoal}
-                onGenerateTasks={handleGenerateTasks}
-                taskCount={taskCount}
-                onTaskCountChange={handleTaskCountChange}
-                minTaskCount={MIN_TASK_COUNT}
-                maxTaskCount={MAX_TASK_COUNT}
-                isGenerating={isGenerating}
-                generateError={generateError}
-              />
+                {/* Header with Close Button */}
+                <div className="flex items-center justify-between pb-4 mb-4 border-b border-slate-800/80">
+                  <h2 className="text-xl font-bold text-slate-100">Expedition Log</h2>
+                  <button onClick={() => setShowTasks(false)} className="text-slate-400 hover:text-white">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-6 h-6">
+                      <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                    </svg>
+                  </button>
+                </div>
 
-              {/* Middle: Ledges (Active Tasks) */}
-              <div className="flex flex-col gap-4">
-                <TaskList
-                  tasks={tasks.filter(t => !t.done).slice(0, 3)}
-                  onToggle={handleToggleTask}
-                  onRemove={handleRemoveTask}
-                  onAdd={handleAddTask}
-                  onPhotoUpdate={handlePhotoUpdate}
-                />
-                <div className="text-xs text-center text-slate-500 italic">
-                  Showing top 3 active ledges
+                <div className="flex flex-col gap-6">
+
+                  {/* Top: Set Your Summit (Goal) */}
+                  <GoalCard
+                    currentGoal={goal}
+                    onSetGoal={handleSetGoal}
+                    onGenerateTasks={handleGenerateTasks}
+                    taskCount={taskCount}
+                    onTaskCountChange={handleTaskCountChange}
+                    minTaskCount={MIN_TASK_COUNT}
+                    maxTaskCount={MAX_TASK_COUNT}
+                    isGenerating={isGenerating}
+                    generateError={generateError}
+                  />
+
+                  {/* Middle: Ledges (Active Tasks) */}
+                  <div className="flex flex-col gap-4">
+                    <TaskList
+                      tasks={tasks.filter(t => !t.done).slice(0, 3)}
+                      onToggle={handleToggleTask}
+                      onRemove={handleRemoveTask}
+                      onAdd={handleAddTask}
+                      onPhotoUpdate={handlePhotoUpdate}
+                    />
+                    <div className="text-xs text-center text-slate-500 italic">
+                      Showing top 3 active ledges
+                    </div>
+                  </div>
+
+                  {/* Bottom: History & Motivation */}
+                  <div className="flex flex-col gap-4">
+                    <CompletedTaskList
+                      tasks={tasks.filter(t => t.done)}
+                      onToggle={handleToggleTask}
+                      onRemove={handleRemoveTask}
+                    />
+
+                    <MotivationCard goal={goal} tasks={tasks} progress={progress} />
+                  </div>
                 </div>
               </div>
-
-              {/* Bottom: History & Motivation */}
-              <div className="flex flex-col gap-4">
-                <CompletedTaskList
-                  tasks={tasks.filter(t => t.done)}
-                  onToggle={handleToggleTask}
-                  onRemove={handleRemoveTask}
-                />
-
-                <MotivationCard goal={goal} tasks={tasks} progress={progress} />
-              </div>
             </div>
-          </div>
-        </div>
+
+            <SummitCelebration
+              show={showCelebration}
+              onDone={() => setShowCelebration(false)}
+            />
+          </>
+        )}
       </div>
-      <SummitCelebration
-        show={showCelebration}
-        onDone={() => setShowCelebration(false)}
-      />
     </>
   )
 }
