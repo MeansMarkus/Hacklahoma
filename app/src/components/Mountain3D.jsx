@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { OrbitControls, Stars, Float, Text, Outlines, Billboard, Html } from '@react-three/drei'
+import { OrbitControls, Stars, Float, Text, Outlines, Billboard, Html, RoundedBox } from '@react-three/drei'
 import * as THREE from 'three'
 
 // -- Constants
@@ -1122,14 +1122,14 @@ function Scene({ tasks, goal, isLocked, mountainId, timeOfDay }) {
                     onFlagHover={setHoveredFlagIndex}
                 />
 
-            <Climber
-                key={mountainId} // Forces remount on mountain switch -> Teleport
-                steps={steps}
-                targetIndex={targetStepIndex}
-                controlsRef={controlsRef}
-                isLocked={isLocked || isTouring}
-                light={theme.climberLight}
-            />
+                <Climber
+                    key={mountainId} // Forces remount on mountain switch -> Teleport
+                    steps={steps}
+                    targetIndex={targetStepIndex}
+                    controlsRef={controlsRef}
+                    isLocked={isLocked || isTouring}
+                    light={theme.climberLight}
+                />
 
                 <Float speed={2} rotationIntensity={0.5} floatIntensity={0.5}>
                     <Billboard
