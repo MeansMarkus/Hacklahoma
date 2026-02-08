@@ -11,13 +11,13 @@ export default function MotivationCard({ goal, tasks, progress }) {
 
   return (
     <div
-      className={`rounded-xl border backdrop-blur-md p-5 ${
+      className={`rounded-xl border backdrop-blur-md p-3 ${
         isSummitReached
           ? 'bg-success/20 border-success/40'
           : 'bg-accent/10 border-accent/25 border-sky-mid/90'
       }`}
     >
-      <p className="text-[0.95rem] font-medium text-slate-100 leading-relaxed">{text}</p>
+      <p className="text-xs font-medium text-slate-100 leading-relaxed">{text}</p>
     </div>
   )
 }

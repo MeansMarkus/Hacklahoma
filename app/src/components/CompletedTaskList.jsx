@@ -9,11 +9,11 @@ export default function CompletedTaskList({ tasks, onToggle, onRemove }) {
         <div className="rounded-xl border border-slate-400/20 bg-slate-900/50 backdrop-blur-md overflow-hidden transition-all">
             <button
                 onClick={() => setIsOpen(!isOpen)}
-                className="w-full flex items-center justify-between p-4 text-left hover:bg-slate-800/50 transition-colors"
+                className="w-full flex items-center justify-between p-2.5 text-left hover:bg-slate-800/50 transition-colors"
             >
                 <div className="flex items-center gap-2">
                     <span className="text-emerald-400">🏆</span>
-                    <span className="font-bold text-slate-300">Past Victories</span>
+                    <span className="text-xs font-bold text-slate-300">Past Victories</span>
                     <span className="bg-slate-800 text-slate-400 text-xs px-2 py-0.5 rounded-full">
                         {tasks.length}
                     </span>
@@ -33,15 +33,15 @@ export default function CompletedTaskList({ tasks, onToggle, onRemove }) {
                     {tasks.map((task) => (
                         <li
                             key={task.id}
-                            className="flex items-center gap-3 p-3 border-b border-slate-400/5 last:border-0 hover:bg-slate-800/30 transition-colors group"
+                            className="flex items-center gap-2 p-2 border-b border-slate-400/5 last:border-0 hover:bg-slate-800/30 transition-colors group"
                         >
                             <input
                                 type="checkbox"
                                 checked={task.done}
                                 onChange={() => onToggle(task.id)}
-                                className="w-4 h-4 accent-emerald-500 cursor-pointer opacity-60 hover:opacity-100"
+                                className="w-3 h-3 accent-emerald-500 cursor-pointer opacity-60 hover:opacity-100"
                             />
-                            <span className="flex-1 text-sm text-slate-500 line-through decoration-slate-600 select-none">
+                            <span className="flex-1 text-[0.7rem] text-slate-500 line-through decoration-slate-600 select-none">
                                 {task.text}
                             </span>
                             <button
